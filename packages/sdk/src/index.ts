@@ -25,6 +25,8 @@ export interface AnalyticsOptions {
   channel?: string
   /** Track a `$pageview` on load and on history navigation. Default false. */
   autoPageviews?: boolean
+  /** Report uncaught errors and unhandled promise rejections as `$error`. Default false. */
+  captureErrors?: boolean
   /** Minutes of inactivity before a new session starts. Default 30. */
   sessionTimeout?: number
   /** Persist identity and queue in localStorage. Default true. */
@@ -47,6 +49,8 @@ export interface Analytics {
   track(name: string, properties?: Properties): void
   page(properties?: Properties): void
   identify(userId: string): void
+  /** Report an error as a `$error` event (grouped by type, message and top stack frame). */
+  captureError(error: unknown, properties?: Properties & { fatal?: boolean }): void
   /** Properties added to every subsequent event. */
   register(properties: Properties): void
   /** Forget the user (e.g. on logout): new anonymous id, empty queue. */
@@ -66,6 +70,14 @@ const uuid = () =>
         const r = (Math.random() * 16) | 0
         return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
       })
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? String(value)
+  } catch {
+    return String(value)
+  }
+}
 
 function createStorage(enabled: boolean, prefix: string) {
   const memory = new Map<string, string>()
@@ -248,6 +260,40 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
     })
   }
 
+  // Errors: identical reports within 5s are dropped, and at most 30 per minute are sent.
+  const recentErrors = new Map<string, number>()
+  let errorWindow = { start: 0, count: 0 }
+  const captureError = (error: unknown, properties: Properties & { fatal?: boolean } = {}) => {
+    const err = error instanceof Error ? error : null
+    const type = err?.name || (typeof error === 'object' && error ? error.constructor?.name : undefined) || 'Error'
+    const message = err ? err.message : typeof error === 'string' ? error : safeStringify(error)
+    const now = Date.now()
+    const key = `${type}:${message}`
+    if (now - (recentErrors.get(key) ?? 0) < 5000) return
+    recentErrors.set(key, now)
+    if (recentErrors.size > 100) recentErrors.clear()
+    if (now - errorWindow.start > 60_000) errorWindow = { start: now, count: 0 }
+    if (++errorWindow.count > 30) return
+    enqueue('$error', {
+      type,
+      message: message.slice(0, 1000),
+      stack: err?.stack?.slice(0, 6000),
+      handled: true,
+      fatal: false,
+      ...(isBrowser ? { path: location.pathname } : {}),
+      ...properties,
+    })
+  }
+
+  if (isBrowser && options.captureErrors) {
+    window.addEventListener('error', (event) => {
+      captureError(event.error ?? event.message, { handled: false, source: event.filename || undefined })
+    })
+    window.addEventListener('unhandledrejection', (event) => {
+      captureError(event.reason, { handled: false, mechanism: 'unhandledrejection' })
+    })
+  }
+
   const page = (properties: Properties = {}) => {
     if (!isBrowser) return
     enqueue('$pageview', {
@@ -282,6 +328,7 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
   return {
     track: enqueue,
     page,
+    captureError,
     identify(id: string) {
       userId = id
       store.set('userId', id)

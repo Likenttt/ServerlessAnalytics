@@ -76,4 +76,20 @@ describe('sdk', () => {
     expect(a.anonymousId).not.toBe(anon)
     await a.shutdown()
   })
+
+  it('captures errors with type, message and stack, deduplicating bursts', async () => {
+    const { fn, calls } = mockFetch([])
+    const a = createAnalytics({ ...base, fetch: fn })
+    const err = new TypeError('x is undefined')
+    a.captureError(err, { screen: 'home' })
+    a.captureError(err) // duplicate within 5s: dropped
+    a.captureError('plain string failure')
+    await a.flush()
+    const events = calls[0]!.body.events
+    expect(events).toHaveLength(2)
+    expect(events[0]).toMatchObject({ name: '$error', properties: { type: 'TypeError', message: 'x is undefined', handled: true, screen: 'home' } })
+    expect(events[0].properties.stack).toContain('TypeError')
+    expect(events[1].properties).toMatchObject({ type: 'Error', message: 'plain string failure' })
+    await a.shutdown()
+  })
 })
