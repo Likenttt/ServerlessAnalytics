@@ -2,11 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  check:
+  typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,9 +21,37 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # core runs against SQLite (D1 fake on node:sqlite) and Postgres (PGlite).
       - run: pnpm test
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - name: Bundle the Cloudflare Worker
+      - name: Bundle the Cloudflare Worker (dry run)
         run: pnpm --filter @serverless-analytics/cloudflare check
       - name: Build the Vercel output
         run: pnpm --filter @serverless-analytics/vercel build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dashboard
+          path: apps/dashboard/dist
+          retention-days: 7
