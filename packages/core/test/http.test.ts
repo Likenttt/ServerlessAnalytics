@@ -116,6 +116,40 @@ describe('HTTP API', () => {
     expect((await t.request('/api/apps', { headers: { authorization: 'Bearer sa_pat_made-up' } })).status).toBe(401)
   })
 
+  it('logs the CLI in through the browser (device flow)', async () => {
+    await bootstrap(t)
+    const start = (await (await t.request('/api/cli/auth/start', { method: 'POST', json: { name: 'agent on laptop' } })).json()) as {
+      deviceCode: string
+      userCode: string
+      verificationUriComplete: string
+    }
+    expect(start.userCode).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/)
+    expect(start.verificationUriComplete).toBe(`https://analytics.test/cli/authorize?code=${start.userCode}`)
+    const poll = () => t.request('/api/cli/auth/poll', { method: 'POST', json: { deviceCode: start.deviceCode } }).then((r) => r.json())
+    expect(await poll()).toEqual({ status: 'pending' })
+
+    // The browser shows and approves the request (session cookie required).
+    expect(await (await t.request(`/api/cli/auth/request?code=${start.userCode.toLowerCase()}`)).json()).toMatchObject({ name: 'agent on laptop' })
+    expect((await t.request('/api/cli/auth/approve', { method: 'POST', json: { userCode: start.userCode } })).status).toBe(200)
+    expect((await t.request('/api/cli/auth/approve', { method: 'POST', json: { userCode: start.userCode } })).status).toBe(409)
+
+    const approved = (await poll()) as { status: string; token: string }
+    expect(approved).toMatchObject({ status: 'approved', name: 'agent on laptop' })
+    expect(approved.token).toMatch(/^sa_pat_/)
+    expect(await poll()).toEqual({ status: 'expired' }) // handed over exactly once
+    expect((await t.request('/api/system', { headers: { authorization: `Bearer ${approved.token}` } })).status).toBe(200)
+
+    // Denied requests report "denied"; approving requires a signed-in browser.
+    const other = (await (await t.request('/api/cli/auth/start', { method: 'POST' })).json()) as { deviceCode: string; userCode: string }
+    const anon = setup()
+    expect((await anon.request('/api/cli/auth/approve', { method: 'POST', json: { userCode: other.userCode } })).status).toBe(401)
+    await t.request('/api/cli/auth/deny', { method: 'POST', json: { userCode: other.userCode } })
+    expect(await t.request('/api/cli/auth/poll', { method: 'POST', json: { deviceCode: other.deviceCode } }).then((r) => r.json())).toEqual({
+      status: 'denied',
+    })
+    expect(await t.request('/api/cli/auth/poll', { method: 'POST', json: { deviceCode: 'nope' } }).then((r) => r.json())).toEqual({ status: 'expired' })
+  })
+
   it('rejects cross-origin mutations', async () => {
     await bootstrap(t)
     const res = await t.request('/api/apps', { method: 'POST', json: { name: 'x' }, headers: { origin: 'https://evil.test' } })

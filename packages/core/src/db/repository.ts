@@ -23,7 +23,7 @@ import { DEFAULT_SAMPLING, type SamplingConfig } from '../types.js'
 import { DAY, INTERVAL_MS, bucketOf, newAppId, newWriteKey, rangeBuckets, trailingRange } from '../util.js'
 import { ERROR_EVENT } from '../ingest/errors.js'
 import type { SqlDialect } from './dialect.js'
-import type { ApiTokensTable, AppsTable, Database, EventDefinitionsTable, EventRow, EventsTable } from './schema.js'
+import type { ApiTokensTable, AppsTable, CliAuthRequestsTable, Database, EventDefinitionsTable, EventRow, EventsTable } from './schema.js'
 
 export interface Filter {
   by: GroupBy
@@ -250,6 +250,27 @@ export class Repository {
       .where('revoked_at', 'is', null)
       .executeTakeFirst()
     return Number(result.numUpdatedRows ?? 0) > 0
+  }
+
+  // Browser login for the CLI (device flow) --------------------------------------
+
+  async createCliAuthRequest(row: CliAuthRequestsTable): Promise<void> {
+    await this.db.deleteFrom('cli_auth_requests').where('expires_at', '<', Date.now()).execute()
+    await this.db.insertInto('cli_auth_requests').values(row).execute()
+  }
+
+  async getCliAuthRequest(by: { deviceCodeHash: string } | { userCode: string }): Promise<CliAuthRequestsTable | null> {
+    let q = this.db.selectFrom('cli_auth_requests').selectAll()
+    q = 'userCode' in by ? q.where('user_code', '=', by.userCode) : q.where('device_code_hash', '=', by.deviceCodeHash)
+    return (await q.executeTakeFirst()) ?? null
+  }
+
+  async updateCliAuthRequest(deviceCodeHash: string, values: { status: string; token?: string | null }): Promise<void> {
+    await this.db.updateTable('cli_auth_requests').set(values).where('device_code_hash', '=', deviceCodeHash).execute()
+  }
+
+  async deleteCliAuthRequest(deviceCodeHash: string): Promise<void> {
+    await this.db.deleteFrom('cli_auth_requests').where('device_code_hash', '=', deviceCodeHash).execute()
   }
 
   // Event definitions ---------------------------------------------------------

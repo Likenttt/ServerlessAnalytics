@@ -5,6 +5,7 @@ import { SESSION_COOKIE, verifySessionToken } from './auth.js'
 import { ConfigError, resolveConfig } from './config.js'
 import type { AppEnv } from './http.js'
 import { adminRoutes } from './routes/admin.js'
+import { cliRoutes } from './routes/cli.js'
 import { ingestRoutes } from './routes/ingest.js'
 import { internalRoutes } from './routes/internal.js'
 import type { Services } from './services.js'
@@ -66,6 +67,7 @@ export function createApp(options: CreateAppOptions) {
   app.use('/api/*', withServices)
   app.route('/v1', ingestRoutes)
   app.route('/api', internalRoutes)
+  app.route('/api', cliRoutes)
   app.route('/api', adminRoutes)
 
   return app
