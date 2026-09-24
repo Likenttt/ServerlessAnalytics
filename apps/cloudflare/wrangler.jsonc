@@ -1,0 +1,49 @@
+// Cloudflare deployment. Driver selection lives in "vars"; see docs/CONFIGURATION.md.
+// Secrets (never commit them): `wrangler secret put ADMIN_PASSWORD`.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "serverless-analytics",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // The dashboard is a static SPA; only the API paths run the Worker.
+  "assets": {
+    "directory": "../dashboard/dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/v1/*"]
+  },
+
+  "vars": {
+    "DB_DRIVER": "d1",
+    "KV_DRIVER": "cloudflare",
+    "QUEUE_DRIVER": "direct"
+  },
+
+  // D1 and KV are created automatically on the first `wrangler deploy`.
+  "d1_databases": [{ "binding": "DB", "database_name": "serverless-analytics" }],
+  "kv_namespaces": [{ "binding": "KV" }],
+
+  // Daily retention cleanup (UTC).
+  "triggers": { "crons": ["17 3 * * *"] },
+
+  "observability": { "enabled": true }
+
+  // QUEUE_DRIVER=cloudflare — create the queues first:
+  //   wrangler queues create serverless-analytics-events
+  //   wrangler queues create serverless-analytics-events-dlq
+  // "queues": {
+  //   "producers": [{ "binding": "EVENTS_QUEUE", "queue": "serverless-analytics-events" }],
+  //   "consumers": [{
+  //     "queue": "serverless-analytics-events",
+  //     "max_batch_size": 100,
+  //     "max_batch_timeout": 5,
+  //     "max_retries": 5,
+  //     "dead_letter_queue": "serverless-analytics-events-dlq"
+  //   }]
+  // }
+
+  // DB_DRIVER=postgres via Hyperdrive (recommended over a direct DATABASE_URL):
+  //   wrangler hyperdrive create serverless-analytics --connection-string="postgres://..."
+  // "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "<hyperdrive id>" }]
+}

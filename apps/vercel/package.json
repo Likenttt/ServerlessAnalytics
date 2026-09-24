@@ -1,0 +1,20 @@
+{
+  "name": "@serverless-analytics/vercel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@serverless-analytics/core": "workspace:*",
+    "@vercel/functions": "^3.9.9"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3"
+  }
+}
