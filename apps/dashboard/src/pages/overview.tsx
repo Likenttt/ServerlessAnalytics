@@ -127,7 +127,9 @@ function Onboarding({ appId }: { appId: string }) {
 const PANELS: { title: string; groupBy: GroupBy }[] = [
   { title: 'Events', groupBy: 'name' },
   { title: 'Platforms', groupBy: 'platform' },
+  { title: 'Channels', groupBy: 'channel' },
   { title: 'Countries', groupBy: 'country' },
+  { title: 'Regions', groupBy: 'region' },
   { title: 'Operating systems', groupBy: 'os' },
   { title: 'App versions', groupBy: 'app_version' },
   { title: 'Browsers', groupBy: 'browser' },
