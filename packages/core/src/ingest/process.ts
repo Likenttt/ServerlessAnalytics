@@ -93,6 +93,12 @@ const firstIssue = (error: z.ZodError) => {
 
 const clean = (v: string | null | undefined) => (v == null || v === '' ? null : v)
 
+/** First language tag of an Accept-Language header, ignoring wildcards. */
+function localeFrom(header: string | null): string | null {
+  const tag = header?.split(',')[0]?.split(';')[0]?.trim()
+  return tag && /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(tag) ? tag : null
+}
+
 /**
  * Validates and enriches a batch. Never throws for individual bad events —
  * they are reported in `rejected` so clients don't retry them forever.
@@ -176,7 +182,7 @@ export function processBatch(
       app_version: clean(ctx.appVersion),
       device: clean(ctx.device) ?? (useUA ? ua.device : null),
       country: clean(ctx.country)?.toUpperCase() ?? info.country,
-      locale: clean(ctx.locale) ?? info.acceptLanguage?.split(',')[0]?.split(';')[0]?.trim() ?? null,
+      locale: clean(ctx.locale) ?? localeFrom(info.acceptLanguage),
       properties,
     })
   })

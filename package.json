@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "pnpm --parallel --filter @serverless-analytics/cloudflare --filter @serverless-analytics/dashboard dev",
-    "build": "pnpm -r build",
+    "build": "pnpm --filter @serverless-analytics/sdk --filter @serverless-analytics/dashboard build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "deploy:cloudflare": "pnpm --filter @serverless-analytics/dashboard build && pnpm --filter @serverless-analytics/cloudflare run deploy",
