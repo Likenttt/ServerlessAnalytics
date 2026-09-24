@@ -1,5 +1,6 @@
 import type {
   ActiveUsers,
+  ApiToken,
   ErrorDetailResponse,
   ErrorsResponse,
   FunnelResponse,
@@ -66,6 +67,14 @@ export const api = {
 
   system: () => request<SystemResponse>('/api/system'),
   migrate: () => request<{ ran: string[] }>('/api/system/migrate', { method: 'POST' }),
+
+  tokens: () => request<{ tokens: ApiToken[] }>('/api/tokens'),
+  createToken: (name: string) => request<{ token: ApiToken; secret: string }>('/api/tokens', { method: 'POST', json: { name } }),
+  revokeToken: (id: string) => request<{ revoked: boolean }>(`/api/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  cliRequest: (code: string) =>
+    request<{ userCode: string; name: string; createdAt: number; expiresAt: number }>(`/api/cli/auth/request${qs({ code })}`),
+  cliApprove: (userCode: string) => request<{ approved: boolean }>('/api/cli/auth/approve', { method: 'POST', json: { userCode } }),
+  cliDeny: (userCode: string) => request<{ denied: boolean }>('/api/cli/auth/deny', { method: 'POST', json: { userCode } }),
 
   apps: () => request<{ apps: AppWithStats[] }>(`/api/apps${qs({ tz: tzOffset() })}`),
   app: (id: string) => request<{ app: App }>(app(id)),

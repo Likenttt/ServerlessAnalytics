@@ -6,6 +6,7 @@ import { Spinner } from './components/ui'
 import { api } from './lib/api'
 import { AppSettingsPage } from './pages/app-settings'
 import { AppsPage } from './pages/apps'
+import { CliAuthorizePage } from './pages/cli-authorize'
 import { DefinitionsPage } from './pages/definitions'
 import { ErrorDetailPage, ErrorsPage } from './pages/errors'
 import { ExplorePage } from './pages/explore'
@@ -70,6 +71,9 @@ function Authenticated() {
       <Route path="/">
         <Header />
         <AppsPage />
+      </Route>
+      <Route path="/cli/authorize">
+        <CliAuthorizePage />
       </Route>
       <Route path="/settings">
         <Header />
