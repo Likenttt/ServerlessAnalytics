@@ -25,6 +25,8 @@ function row(appId: string, overrides: Partial<EventRow> = {}): EventRow {
     device: 'Desktop',
     country: 'US',
     locale: 'en-US',
+    channel: null,
+    region: null,
     properties: {},
     ...overrides,
   }
@@ -122,6 +124,18 @@ describe.each(DIALECTS)('Repository on %s', (_, open) => {
 
     const names = await repo.top(appId, range, 'name', 10)
     expect(names.rows[0]).toEqual({ value: 'purchase', events: 4, users: 3 })
+  })
+
+  it('breaks down by channel and region', async () => {
+    await repo.insertEvents([
+      row(appId, { channel: 'appstore', country: 'US', region: 'CA', distinct_id: 'a' }),
+      row(appId, { channel: 'appstore', country: 'US', region: 'NY', distinct_id: 'b' }),
+      row(appId, { channel: 'huawei', country: 'CN', region: '44', distinct_id: 'c' }),
+    ])
+    const range = trailingRange(NOW, 24, 'hour', 0)
+    expect((await repo.top(appId, range, 'channel', 10)).rows[0]).toEqual({ value: 'appstore', events: 2, users: 2 })
+    const regions = await repo.top(appId, range, 'region', 10, [{ by: 'country', value: 'US' }])
+    expect(regions.rows.map((r) => r.value).sort()).toEqual(['CA', 'NY'])
   })
 
   it('lists apps with a 7-day sparkline', async () => {

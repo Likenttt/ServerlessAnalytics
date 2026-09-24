@@ -93,7 +93,7 @@ describe('parseUserAgent', () => {
 
 describe('processBatch', () => {
   const app: App = { id: 'app', name: 'A', writeKey: 'wk', schemaMode: 'permissive', retentionDays: 30, createdAt: 0, updatedAt: 0 }
-  const info = { userAgent: null, country: 'FR', acceptLanguage: 'fr-FR,fr;q=0.9', receivedAt: 1_000_000_000_000 }
+  const info = { userAgent: null, country: 'FR', region: 'IDF', acceptLanguage: 'fr-FR,fr;q=0.9', receivedAt: 1_000_000_000_000 }
 
   it('corrects client clock skew using sentAt', () => {
     // Device clock is 1 hour behind.
@@ -104,7 +104,17 @@ describe('processBatch', () => {
       info,
     )
     expect(rows[0]!.ts).toBe(info.receivedAt - 5000)
-    expect(rows[0]).toMatchObject({ country: 'FR', locale: 'fr-FR', distinct_id: 'a' })
+    expect(rows[0]).toMatchObject({ country: 'FR', region: 'IDF', locale: 'fr-FR', distinct_id: 'a' })
+  })
+
+  it('takes channel from context and drops request region when the client sets the country', () => {
+    const { rows } = processBatch(
+      { context: { channel: 'GooglePlay' }, events: [{ name: 'e', anonymousId: 'a', context: { country: 'jp' } }] },
+      app,
+      null,
+      info,
+    )
+    expect(rows[0]).toMatchObject({ channel: 'googleplay', country: 'JP', region: null })
   })
 
   it('clamps future timestamps, dedupes ids and prefers userId', () => {

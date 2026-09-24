@@ -70,6 +70,15 @@ export const MIGRATIONS: Migration[] = [
   },
 ]
 
+MIGRATIONS.push({
+  name: '0002_channel_region',
+  statements: () => [
+    // ADD COLUMN has no IF NOT EXISTS on SQLite; migrate() tolerates "duplicate column" on re-runs.
+    `ALTER TABLE events ADD COLUMN channel TEXT`,
+    `ALTER TABLE events ADD COLUMN region TEXT`,
+  ],
+})
+
 const isMissingTable = (error: unknown) =>
   /no such table|does not exist|42P01/i.test(String((error as { message?: string })?.message ?? error)) ||
   (error as { code?: string })?.code === '42P01'
@@ -99,7 +108,14 @@ export async function migrate(db: Kysely<Database>, dialect: DialectName): Promi
   for (const migration of MIGRATIONS) {
     if (applied.has(migration.name)) continue
     const run = async (conn: Kysely<Database>) => {
-      for (const statement of migration.statements(dialect)) await sql.raw(statement).execute(conn)
+      for (const statement of migration.statements(dialect)) {
+        try {
+          await sql.raw(statement).execute(conn)
+        } catch (error) {
+          // A previous partial run on a non-transactional database (D1) may have added it already.
+          if (!/duplicate column|already exists/i.test(String((error as Error)?.message))) throw error
+        }
+      }
       await conn
         .insertInto('sa_migrations')
         .values({ name: migration.name, applied_at: Date.now() })

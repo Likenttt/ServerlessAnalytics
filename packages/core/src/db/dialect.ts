@@ -77,6 +77,8 @@ const PG_RECORD_TYPES: Record<(typeof EVENT_COLUMNS)[number], string> = {
   device: 'text',
   country: 'text',
   locale: 'text',
+  channel: 'text',
+  region: 'text',
   properties: 'jsonb',
 }
 

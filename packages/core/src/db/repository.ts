@@ -429,6 +429,8 @@ export class Repository {
       device: r.device,
       country: r.country,
       locale: r.locale,
+      channel: r.channel,
+      region: r.region,
       properties: this.dialect.parseProperties(r.properties),
     }
   }
