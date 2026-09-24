@@ -1,6 +1,7 @@
 import type { Context } from '../context.js'
 import { appsCreate, appsDelete, appsGet, appsList, appsRotateKey, appsUpdate, eventsDefine, eventsDelete, eventsList, eventsUpdate, samplingGet, samplingSet } from './apps.js'
 import { login, logout, migrate, tokens, whoami } from './auth.js'
+import { queryActive, queryErrors, queryEvents, queryFunnel, queryOverview, queryTop, queryTrend, snippet, track } from './query.js'
 
 export type Command = (ctx: Context) => Promise<void>
 
@@ -24,6 +25,15 @@ export const COMMANDS: Record<string, Command> = {
   'events define': eventsDefine,
   'events update': eventsUpdate,
   'events delete': eventsDelete,
+  'query overview': queryOverview,
+  'query active': queryActive,
+  'query top': queryTop,
+  'query trend': queryTrend,
+  'query funnel': queryFunnel,
+  'query errors': queryErrors,
+  'query events': queryEvents,
+  track,
+  snippet,
 }
 
 const GLOBAL = `Global options:
@@ -58,6 +68,20 @@ Configure (<app> is an app id or name)
   sampling get <app>
   sampling set <app> [--mode full|sampled] [--strategy user|event] [--rate 0.1|10%]
                      [--override event=rate]… [--remove-override event] [--clear-overrides]
+
+Query (--range 24h|7d|30d|90d or --from/--to · --filter field=value… · --interval hour|day)
+  query overview <app>                              Totals, previous period, series
+  query active <app>                                DAU / WAU / MAU
+  query top <app> --by <field> [--limit N]          e.g. --by country, --by channel, --by prop:plan
+  query trend <app> [--event E] [--metric M] [--by F]
+                    metric: events | users | per_user | sum:<prop> | avg:<prop>
+  query funnel <app> --step A --step B … [--window HOURS] [--by F]
+  query errors <app> [<fingerprint>]                Error groups, or one group in detail
+  query events <app> [--name E] [--limit N]         Latest raw events
+
+Integrate
+  snippet <app> [--lang js|html|curl|kotlin|swift]  Integration code with endpoint and write key
+  track <app> <event> [--prop k=v]… [--user U]      Send a test event (k:=<json> for raw JSON)
 
 ${GLOBAL}
 
