@@ -4,7 +4,7 @@ import { Link, useLocation } from 'wouter'
 import { api } from '../lib/api'
 import { useTheme, type ThemePreference } from '../lib/theme'
 import { CheckIcon, ChevronUpDownIcon, GearIcon, LogOutIcon, Logo, MonitorIcon, MoonIcon, PlusIcon, SunIcon } from './icons'
-import { cx } from './ui'
+import { Badge, cx } from './ui'
 
 function usePopover() {
   const [open, setOpen] = useState(false)
@@ -63,6 +63,21 @@ function AppSwitcher({ appId }: { appId: string }) {
         </div>
       )}
     </div>
+  )
+}
+
+function SamplingBadge({ appId }: { appId: string }) {
+  const app = useQuery({ queryKey: ['app', appId], queryFn: () => api.app(appId) })
+  const sampling = app.data?.app.sampling
+  if (!sampling || sampling.mode !== 'sampled') return null
+  return (
+    <Link
+      href={`/apps/${appId}/settings`}
+      title="Numbers are estimated from sampled data. Change in Settings."
+      className="hidden rounded-full sm:inline-flex"
+    >
+      <Badge tone="amber">Sampled · {Math.round(sampling.rate * 10000) / 100}%</Badge>
+    </Link>
   )
 }
 
@@ -166,6 +181,7 @@ export function Header({ appId }: { appId?: string }) {
               /
             </span>
             <AppSwitcher appId={appId} />
+            <SamplingBadge appId={appId} />
           </>
         )}
         <div className="ml-auto flex items-center gap-2">

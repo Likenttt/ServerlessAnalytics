@@ -1,9 +1,9 @@
-import type { App, SchemaMode } from '@serverless-analytics/core/types'
+import type { App, SamplingConfig, SchemaMode } from '@serverless-analytics/core/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useLocation } from 'wouter'
 import { Dialog } from '../components/dialog'
-import { EyeIcon, EyeOffIcon, RefreshIcon } from '../components/icons'
+import { EyeIcon, EyeOffIcon, PlusIcon, RefreshIcon, TrashIcon } from '../components/icons'
 import { Page } from '../components/layout'
 import { Quickstart } from '../components/quickstart'
 import { Button, CopyButton, Field, IconButton, Input, Note, RadioCards, SettingsCard, Skeleton } from '../components/ui'
@@ -16,7 +16,7 @@ function useUpdateApp(appId: string) {
   const queryClient = useQueryClient()
   const toast = useToast()
   return useMutation({
-    mutationFn: (patch: Partial<Pick<App, 'name' | 'schemaMode' | 'retentionDays'>>) => api.updateApp(appId, patch),
+    mutationFn: (patch: Partial<Pick<App, 'name' | 'schemaMode' | 'retentionDays' | 'sampling'>>) => api.updateApp(appId, patch),
     onSuccess: ({ app }) => {
       queryClient.setQueryData(['app', appId], { app })
       queryClient.invalidateQueries({ queryKey: ['apps'] })
@@ -123,6 +123,136 @@ function SchemaModeCard({ app }: { app: App }) {
       }
     >
       <RadioCards name="settings-schema-mode" value={mode} onChange={setMode} options={SCHEMA_MODES} />
+    </SettingsCard>
+  )
+}
+
+const pct = (rate: number) => String(Math.round(rate * 10000) / 100)
+
+function SamplingCard({ app }: { app: App }) {
+  const update = useUpdateApp(app.id)
+  const definitions = useQuery({ queryKey: ['definitions', app.id], queryFn: () => api.definitions(app.id) })
+  const [mode, setMode] = useState<SamplingConfig['mode']>(app.sampling.mode)
+  const [strategy, setStrategy] = useState<SamplingConfig['strategy']>(app.sampling.strategy)
+  const [rate, setRate] = useState(pct(app.sampling.rate))
+  const [overrides, setOverrides] = useState(app.sampling.overrides.map((o) => ({ event: o.event, rate: pct(o.rate) })))
+  useEffect(() => {
+    setMode(app.sampling.mode)
+    setStrategy(app.sampling.strategy)
+    setRate(pct(app.sampling.rate))
+    setOverrides(app.sampling.overrides.map((o) => ({ event: o.event, rate: pct(o.rate) })))
+  }, [app.sampling])
+
+  const names = [...new Set([...(definitions.data?.definitions.map((d) => d.name) ?? []), ...(definitions.data?.undefinedEvents.map((d) => d.name) ?? [])])]
+  const r = Number(rate)
+  const rateValid = r > 0 && r <= 100
+  const overridesValid = overrides.every((o) => o.event.trim() && Number(o.rate) >= 0 && Number(o.rate) <= 100 && o.rate !== '')
+  const next: SamplingConfig = {
+    mode,
+    strategy,
+    rate: rateValid ? r / 100 : app.sampling.rate,
+    overrides: overrides.filter((o) => o.event.trim()).map((o) => ({ event: o.event.trim(), rate: Number(o.rate) / 100 })),
+  }
+  const dirty = JSON.stringify(next) !== JSON.stringify(app.sampling)
+
+  return (
+    <SettingsCard
+      title="Sampling"
+      description="Keep every event, or only a share of them to cut storage and cost at high volume. Charts scale sampled data back up, so totals are estimates."
+      footer={mode === 'sampled' ? 'Applies to new events within about a minute. $error is always kept in full unless overridden.' : 'Every event is stored.'}
+      action={
+        <Button variant="primary" loading={update.isPending} disabled={!dirty || (mode === 'sampled' && (!rateValid || !overridesValid))} onClick={() => update.mutate({ sampling: next })}>
+          Save
+        </Button>
+      }
+    >
+      <div className="flex flex-col gap-5">
+        <RadioCards
+          name="sampling-mode"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'full', label: 'Full', description: 'Store every event. Exact numbers.' },
+            { value: 'sampled', label: 'Sampled', description: 'Store a share of events; totals are estimated.' },
+          ]}
+        />
+        {mode === 'sampled' && (
+          <>
+            <Field label="Strategy">
+              <RadioCards
+                name="sampling-strategy"
+                value={strategy}
+                onChange={setStrategy}
+                options={[
+                  { value: 'user', label: 'By user (recommended)', description: 'Keep all events of a share of users. Funnels and per-user metrics stay accurate.' },
+                  { value: 'event', label: 'By event', description: 'Keep a share of each event independently. User counts become lower bounds.' },
+                ]}
+              />
+            </Field>
+            <Field label={strategy === 'user' ? 'Users to keep' : 'Events to keep'} error={rateValid ? null : 'Enter a percentage between 0.01 and 100'}>
+              <div className="flex items-center gap-2">
+                <Input
+                  aria-label="Sampling rate in percent"
+                  type="number"
+                  inputMode="decimal"
+                  min={0.01}
+                  max={100}
+                  step="any"
+                  value={rate}
+                  aria-invalid={!rateValid || undefined}
+                  onChange={(e) => setRate(e.target.value)}
+                  className="!w-28 tabular"
+                />
+                <span className="text-sm text-muted">%</span>
+              </div>
+            </Field>
+            <Field label="Per-event rates" hint="For example keep purchase at 100% and screen_view at 5%. 0% drops an event entirely.">
+              <div className="flex flex-col gap-2">
+                <datalist id="sampling-events">
+                  {names.map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
+                {overrides.map((o, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      mono
+                      aria-label="Event name"
+                      list="sampling-events"
+                      placeholder="event_name"
+                      spellCheck={false}
+                      autoComplete="off"
+                      value={o.event}
+                      onChange={(e) => setOverrides(overrides.map((x, j) => (j === i ? { ...x, event: e.target.value } : x)))}
+                      className="max-w-xs"
+                    />
+                    <Input
+                      aria-label="Rate in percent"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="any"
+                      value={o.rate}
+                      onChange={(e) => setOverrides(overrides.map((x, j) => (j === i ? { ...x, rate: e.target.value } : x)))}
+                      className="!w-24 tabular"
+                    />
+                    <span className="text-sm text-muted">%</span>
+                    <IconButton label="Remove override" onClick={() => setOverrides(overrides.filter((_, j) => j !== i))}>
+                      <TrashIcon />
+                    </IconButton>
+                  </div>
+                ))}
+                <div>
+                  <Button variant="tertiary" className="-ml-2" icon={<PlusIcon />} disabled={overrides.length >= 50} onClick={() => setOverrides([...overrides, { event: '', rate: '100' }])}>
+                    Add event rate
+                  </Button>
+                </div>
+              </div>
+            </Field>
+          </>
+        )}
+        {update.error && <Note tone="danger">{errorText(update.error)}</Note>}
+      </div>
     </SettingsCard>
   )
 }
@@ -239,6 +369,7 @@ export function AppSettingsPage({ appId }: { appId: string }) {
             <Quickstart writeKey={app.writeKey} />
           </SettingsCard>
           <SchemaModeCard app={app} />
+          <SamplingCard app={app} />
           <RetentionCard app={app} />
           <DeleteCard app={app} />
         </div>

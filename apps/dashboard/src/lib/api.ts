@@ -70,7 +70,7 @@ export const api = {
   apps: () => request<{ apps: AppWithStats[] }>(`/api/apps${qs({ tz: tzOffset() })}`),
   app: (id: string) => request<{ app: App }>(app(id)),
   createApp: (body: { name: string; schemaMode: SchemaMode }) => request<{ app: App }>('/api/apps', { method: 'POST', json: body }),
-  updateApp: (id: string, body: Partial<Pick<App, 'name' | 'schemaMode' | 'retentionDays'>>) =>
+  updateApp: (id: string, body: Partial<Pick<App, 'name' | 'schemaMode' | 'retentionDays' | 'sampling'>>) =>
     request<{ app: App }>(app(id), { method: 'PATCH', json: body }),
   rotateKey: (id: string) => request<{ app: App }>(`${app(id)}/rotate-key`, { method: 'POST' }),
   deleteApp: (id: string) => request<{ deleted: boolean }>(app(id), { method: 'DELETE' }),
