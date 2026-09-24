@@ -124,6 +124,33 @@ function Onboarding({ appId }: { appId: string }) {
   )
 }
 
+function ActiveUsersCard({ appId }: { appId: string }) {
+  const { raw: f } = useFilters()
+  const active = useQuery({
+    queryKey: ['active-users', appId, f],
+    queryFn: () => api.activeUsers(appId, { f }),
+    placeholderData: keepPreviousData,
+  })
+  const a = active.data
+  const items = [
+    { label: 'Daily active', hint: 'Last 24 hours', value: a ? formatNumber(a.dau) : null },
+    { label: 'Weekly active', hint: 'Last 7 days', value: a ? formatNumber(a.wau) : null },
+    { label: 'Monthly active', hint: 'Last 30 days', value: a ? formatNumber(a.mau) : null },
+    { label: 'Stickiness', hint: 'DAU ÷ MAU', value: a ? (a.mau ? formatPercent(a.dau / a.mau) : '—') : null },
+  ]
+  return (
+    <Card className="mb-8 grid grid-cols-2 divide-border overflow-hidden sm:grid-cols-4 sm:divide-x">
+      {items.map((item) => (
+        <div key={item.label} className="flex flex-col gap-1 px-5 py-4">
+          <span className="text-[13px] font-medium text-muted">{item.label}</span>
+          {item.value === null ? <Skeleton className="h-7 w-16" /> : <span className="text-xl font-semibold tracking-tight">{item.value}</span>}
+          <span className="text-xs text-faint">{item.hint}</span>
+        </div>
+      ))}
+    </Card>
+  )
+}
+
 const PANELS: { title: string; groupBy: GroupBy }[] = [
   { title: 'Events', groupBy: 'name' },
   { title: 'Platforms', groupBy: 'platform' },
@@ -228,6 +255,8 @@ export function OverviewPage({ appId }: { appId: string }) {
           )}
         </div>
       </Card>
+
+      <ActiveUsersCard appId={appId} />
 
       <div className="grid gap-4 md:grid-cols-2">
         {PANELS.map((p) => (
