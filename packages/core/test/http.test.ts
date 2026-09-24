@@ -92,6 +92,30 @@ describe('HTTP API', () => {
     })
   })
 
+  it('issues, uses and revokes personal access tokens', async () => {
+    await bootstrap(t)
+    const created = (await (await t.request('/api/tokens', { method: 'POST', json: { name: 'laptop' } })).json()) as {
+      token: { id: string; name: string; prefix: string }
+      secret: string
+    }
+    expect(created.secret).toMatch(/^sa_pat_[A-Za-z0-9]{40}$/)
+    expect(created.token).toMatchObject({ name: 'laptop', prefix: created.secret.slice(0, 11) })
+
+    const bearer = { headers: { authorization: `Bearer ${created.secret}` }, base: 'https://other.test' }
+    const current = await (await t.request('/api/tokens/current', bearer)).json()
+    expect(current).toMatchObject({ token: { id: created.token.id, name: 'laptop' } })
+    // Bearer requests skip the Origin check: they carry no cookie.
+    expect((await t.request('/api/apps', { ...bearer, method: 'POST', json: { name: 'via token' }, headers: { ...bearer.headers, origin: 'https://evil.test' } })).status).toBe(201)
+
+    const list = (await (await t.request('/api/tokens')).json()) as { tokens: { id: string; lastUsedAt: number | null }[] }
+    expect(list.tokens.map((x) => x.id)).toEqual([created.token.id])
+    expect(JSON.stringify(list)).not.toContain(created.secret)
+
+    expect((await t.request(`/api/tokens/${created.token.id}`, { method: 'DELETE' })).status).toBe(200)
+    expect((await t.request('/api/apps', bearer)).status).toBe(401)
+    expect((await t.request('/api/apps', { headers: { authorization: 'Bearer sa_pat_made-up' } })).status).toBe(401)
+  })
+
   it('rejects cross-origin mutations', async () => {
     await bootstrap(t)
     const res = await t.request('/api/apps', { method: 'POST', json: { name: 'x' }, headers: { origin: 'https://evil.test' } })

@@ -2,12 +2,12 @@ import type { Context } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import type { Services } from './services.js'
-import type { ApiError, Interval, TimeRange } from './types.js'
+import type { ApiError, ApiToken, Interval, TimeRange } from './types.js'
 import { DAY, HOUR, trailingRange } from './util.js'
 import { parseGroupBy } from './validation.js'
 import type { Filter } from './db/repository.js'
 
-export type AppEnv = { Variables: { services: Services } }
+export type AppEnv = { Variables: { services: Services; token?: ApiToken } }
 
 export function apiError(status: ContentfulStatusCode, code: string, message: string): HTTPException {
   const body: ApiError = { error: { code, message } }

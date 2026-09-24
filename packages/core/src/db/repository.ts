@@ -4,6 +4,7 @@ import type {
   AppWithStats,
   DefinitionStatus,
   ActiveUsers,
+  ApiToken,
   ErrorsResponse,
   EventDefinition,
   FunnelResponse,
@@ -22,7 +23,7 @@ import { DEFAULT_SAMPLING, type SamplingConfig } from '../types.js'
 import { DAY, INTERVAL_MS, bucketOf, newAppId, newWriteKey, rangeBuckets, trailingRange } from '../util.js'
 import { ERROR_EVENT } from '../ingest/errors.js'
 import type { SqlDialect } from './dialect.js'
-import type { AppsTable, Database, EventDefinitionsTable, EventRow, EventsTable } from './schema.js'
+import type { ApiTokensTable, AppsTable, Database, EventDefinitionsTable, EventRow, EventsTable } from './schema.js'
 
 export interface Filter {
   by: GroupBy
@@ -58,6 +59,14 @@ export function parseSampling(raw: string | null | undefined): SamplingConfig {
     return { ...DEFAULT_SAMPLING }
   }
 }
+
+const toToken = (r: ApiTokensTable): ApiToken => ({
+  id: r.id,
+  name: r.name,
+  prefix: r.prefix,
+  createdAt: Number(r.created_at),
+  lastUsedAt: r.last_used_at == null ? null : Number(r.last_used_at),
+})
 
 const toApp = (r: AppsTable): App => ({
   id: r.id,
@@ -195,6 +204,52 @@ export class Repository {
   async hardDeleteApp(id: string): Promise<void> {
     await this.db.deleteFrom('event_definitions').where('app_id', '=', id).execute()
     await this.db.deleteFrom('apps').where('id', '=', id).execute()
+  }
+
+  // Access tokens ---------------------------------------------------------------
+
+  async listTokens(): Promise<ApiToken[]> {
+    const rows = await this.db.selectFrom('api_tokens').selectAll().where('revoked_at', 'is', null).orderBy('created_at', 'desc').execute()
+    return rows.map(toToken)
+  }
+
+  async createToken(row: { id: string; name: string; tokenHash: string; prefix: string }): Promise<ApiToken> {
+    const now = Date.now()
+    const values: ApiTokensTable = {
+      id: row.id,
+      name: row.name,
+      token_hash: row.tokenHash,
+      prefix: row.prefix,
+      created_at: now,
+      last_used_at: null,
+      revoked_at: null,
+    }
+    await this.db.insertInto('api_tokens').values(values).execute()
+    return toToken(values)
+  }
+
+  async findActiveToken(tokenHash: string): Promise<ApiToken | null> {
+    const row = await this.db
+      .selectFrom('api_tokens')
+      .selectAll()
+      .where('token_hash', '=', tokenHash)
+      .where('revoked_at', 'is', null)
+      .executeTakeFirst()
+    return row ? toToken(row) : null
+  }
+
+  async touchToken(id: string, at: number): Promise<void> {
+    await this.db.updateTable('api_tokens').set({ last_used_at: at }).where('id', '=', id).execute()
+  }
+
+  async revokeToken(id: string): Promise<boolean> {
+    const result = await this.db
+      .updateTable('api_tokens')
+      .set({ revoked_at: Date.now() })
+      .where('id', '=', id)
+      .where('revoked_at', 'is', null)
+      .executeTakeFirst()
+    return Number(result.numUpdatedRows ?? 0) > 0
   }
 
   // Event definitions ---------------------------------------------------------

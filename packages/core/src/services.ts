@@ -6,7 +6,8 @@ import type { Database } from './db/schema.js'
 import { Cache, cacheKeys, createKV, type KVStore } from './kv.js'
 import { createQueue, parseQueueMessage, type EventQueue } from './queue.js'
 import type { App, EventDefinition } from './types.js'
-import { DAY } from './util.js'
+import { TOKEN_PREFIX, hashToken, newAccessToken } from './tokens.js'
+import { DAY, randomString } from './util.js'
 
 export interface OpenDatabase {
   db: Kysely<Database>
@@ -79,6 +80,18 @@ export function definitionsForApp(services: Services, appId: string): Promise<Ev
 
 export async function invalidateApp(services: Services, app: Pick<App, 'id' | 'writeKey'>) {
   await services.cache.invalidate(cacheKeys.appByWriteKey(app.writeKey), cacheKeys.definitions(app.id))
+}
+
+/** Creates a personal access token; the secret is returned once and never stored. */
+export async function issueToken(repo: Repository, name: string) {
+  const token = newAccessToken()
+  const record = await repo.createToken({
+    id: randomString(12, '0123456789abcdefghijklmnopqrstuvwxyz'),
+    name,
+    tokenHash: await hashToken(token),
+    prefix: token.slice(0, TOKEN_PREFIX.length + 4),
+  })
+  return { token, record }
 }
 
 /** Consumer for queued messages (Cloudflare Queues, QStash). */

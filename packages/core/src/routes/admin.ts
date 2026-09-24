@@ -1,10 +1,11 @@
-import { Hono, type Context, type MiddlewareHandler } from 'hono'
-import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
+import { Hono, type Context } from 'hono'
+import { deleteCookie, setCookie } from 'hono/cookie'
 import { z } from 'zod'
-import { SESSION_COOKIE, SESSION_TTL_SECONDS, checkPassword, createSessionToken, verifySessionToken } from '../auth.js'
+import { SESSION_COOKIE, SESSION_TTL_SECONDS, checkPassword, createSessionToken } from '../auth.js'
+import { requireSession } from './session.js'
 import { migrate, migrationStatus } from '../db/migrations.js'
 import { apiError, clampInt, parseFilters, parseRange, publicOrigin, readJson, type AppEnv } from '../http.js'
-import { invalidateApp, runRetention } from '../services.js'
+import { invalidateApp, issueToken, runRetention } from '../services.js'
 import type {
   ActiveUsers,
   FunnelResponse,
@@ -66,30 +67,31 @@ adminRoutes.post('/auth/logout', (c) => {
   return c.json({ authenticated: false })
 })
 
-const requireSession: MiddlewareHandler<AppEnv> = async (c, next) => {
-  const { config } = c.get('services')
-  // Programmatic access: `Authorization: Bearer <ADMIN_API_TOKEN>` (no cookie, so no CSRF risk).
-  const auth = c.req.header('authorization')
-  if (config.auth.apiToken && auth?.startsWith('Bearer ')) {
-    if (!(await checkPassword(config.auth.apiToken, auth.slice(7).trim()))) throw apiError(401, 'unauthorized', 'Invalid API token')
-    return next()
-  }
-  if (!(await verifySessionToken(config.auth.sessionSecret, getCookie(c, SESSION_COOKIE)))) {
-    throw apiError(401, 'unauthorized', 'Sign in to continue')
-  }
-  // CSRF: SameSite=Lax already blocks cross-site cookies on POST; also reject
-  // mutating requests whose Origin doesn't match.
-  if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
-    const origin = c.req.header('origin')
-    if (origin && origin !== publicOrigin(c)) throw apiError(403, 'bad_origin', 'Cross-origin request rejected')
-  }
-  await next()
-}
-
 adminRoutes.use('/system/*', requireSession)
 adminRoutes.use('/system', requireSession)
 adminRoutes.use('/apps/*', requireSession)
 adminRoutes.use('/apps', requireSession)
+adminRoutes.use('/tokens/*', requireSession)
+adminRoutes.use('/tokens', requireSession)
+
+// Access tokens -----------------------------------------------------------------
+
+adminRoutes.get('/tokens', async (c) => c.json({ tokens: await c.get('services').repo.listTokens() }))
+
+/** The token used for this request (for `sa whoami`); null with a browser session. */
+adminRoutes.get('/tokens/current', (c) => c.json({ token: c.get('token') ?? null }))
+
+adminRoutes.post('/tokens', async (c) => {
+  const { name } = parse(z.object({ name: z.string().trim().min(1).max(64) }), await readJson(c))
+  const { token, record } = await issueToken(c.get('services').repo, name)
+  // The secret is only ever shown once.
+  return c.json({ token: record, secret: token }, 201)
+})
+
+adminRoutes.delete('/tokens/:tokenId', async (c) => {
+  if (!(await c.get('services').repo.revokeToken(c.req.param('tokenId')))) throw apiError(404, 'token_not_found', 'Token not found')
+  return c.json({ revoked: true })
+})
 
 // System ----------------------------------------------------------------------
 

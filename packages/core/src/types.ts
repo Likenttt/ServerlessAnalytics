@@ -220,6 +220,14 @@ export interface SessionResponse {
   configError?: string
 }
 
+export interface ApiToken {
+  id: string
+  name: string
+  prefix: string
+  createdAt: number
+  lastUsedAt: number | null
+}
+
 export interface IngestResponse {
   ok: true
   accepted: number

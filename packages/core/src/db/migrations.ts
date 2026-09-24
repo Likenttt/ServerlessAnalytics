@@ -91,6 +91,33 @@ MIGRATIONS.push({
   },
 })
 
+MIGRATIONS.push({
+  name: '0004_api_tokens',
+  statements: (d) => {
+    const t = types(d)
+    return [
+      `CREATE TABLE IF NOT EXISTS api_tokens (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        prefix TEXT NOT NULL,
+        created_at ${t.bigint} NOT NULL,
+        last_used_at ${t.bigint},
+        revoked_at ${t.bigint}
+      )`,
+      `CREATE TABLE IF NOT EXISTS cli_auth_requests (
+        device_code_hash TEXT PRIMARY KEY,
+        user_code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL,
+        token TEXT,
+        created_at ${t.bigint} NOT NULL,
+        expires_at ${t.bigint} NOT NULL
+      )`,
+    ]
+  },
+})
+
 const isMissingTable = (error: unknown) =>
   /no such table|does not exist|42P01/i.test(String((error as { message?: string })?.message ?? error)) ||
   (error as { code?: string })?.code === '42P01'

@@ -60,8 +60,34 @@ export interface MigrationsTable {
   applied_at: Generated<number>
 }
 
+/** Personal access tokens (CLI / agents). Only a SHA-256 of the secret is stored. */
+export interface ApiTokensTable {
+  id: string
+  name: string
+  token_hash: string
+  /** First characters of the token, shown so users can tell tokens apart. */
+  prefix: string
+  created_at: number
+  last_used_at: number | null
+  revoked_at: number | null
+}
+
+/** Pending browser authorizations started by `sa login` (device flow). */
+export interface CliAuthRequestsTable {
+  device_code_hash: string
+  user_code: string
+  name: string
+  status: string
+  /** The issued token, held only until the CLI picks it up. */
+  token: string | null
+  created_at: number
+  expires_at: number
+}
+
 export interface Database {
   apps: AppsTable
+  api_tokens: ApiTokensTable
+  cli_auth_requests: CliAuthRequestsTable
   event_definitions: EventDefinitionsTable
   events: EventsTable
   sa_migrations: MigrationsTable
