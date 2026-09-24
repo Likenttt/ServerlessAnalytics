@@ -16,7 +16,7 @@ const base = { endpoint: 'https://a.test/', writeKey: 'wk_test_1234567890', pers
 describe('sdk', () => {
   it('batches events with identity, session and super properties', async () => {
     const { fn, calls } = mockFetch([200])
-    const a = createAnalytics({ ...base, fetch: fn, appVersion: '1.2.3' })
+    const a = createAnalytics({ ...base, fetch: fn, appVersion: '1.2.3', channel: 'huawei' })
     a.register({ plan: 'pro' })
     a.track('one', { x: 1 })
     a.identify('user-1')
@@ -30,7 +30,7 @@ describe('sdk', () => {
     expect(e1.userId).toBeUndefined()
     expect(e2).toMatchObject({ name: 'two', userId: 'user-1' })
     expect(e1.sessionId).toBe(e2.sessionId)
-    expect(calls[0]!.body.context).toMatchObject({ appVersion: '1.2.3' })
+    expect(calls[0]!.body.context).toMatchObject({ appVersion: '1.2.3', channel: 'huawei' })
     expect(typeof calls[0]!.body.sentAt).toBe('number')
     await a.shutdown()
   })
