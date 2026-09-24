@@ -110,12 +110,12 @@ module Ui {
     }
   }
 
-  function center() as Number {
+  function center() {
     return Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
   }
 
   // Horizontal progress bar; pct 0..100.
-  function bar(dc as Graphics.Dc, x, y, w, h, pct, color as Number) as Void {
+  function bar(dc as Graphics.Dc, x, y, w, h, pct, color) as Void {
     dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
     dc.fillRectangle(x, y, w, h);
     if (pct > 0) {

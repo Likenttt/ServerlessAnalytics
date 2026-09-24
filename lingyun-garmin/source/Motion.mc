@@ -78,6 +78,6 @@ class Stillness {
   }
 }
 
-function magnitude(x as Number, y as Number, z as Number) as Float {
+function magnitude(x as Number, y as Number, z as Number) {
   return Math.sqrt(x * x + y * y + z * z);
 }
