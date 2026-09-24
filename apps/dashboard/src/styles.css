@@ -1,0 +1,198 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+/*
+ * Design tokens. Neutral, Geist-like chrome: one font family, hairline
+ * borders, no shadows on content, color reserved for data and state.
+ * Dark mode is its own set of steps, not an inversion.
+ */
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-subtle: #fafafa;
+  --bg-hover: #f2f2f2;
+  --bg-active: #ebebeb;
+  --border: #ebebeb;
+  --border-strong: #d6d6d6;
+  --fg: #171717;
+  --fg-muted: #666666;
+  --fg-subtle: #8f8f8f;
+  --inverse-bg: #171717;
+  --inverse-fg: #ffffff;
+  --inverse-hover: #383838;
+  --accent: #0068d6;
+  --focus: #006bff;
+  --success: #297a3a;
+  --success-bg: #ebfaeb;
+  --danger: #cb2a2f;
+  --danger-bg: #fff0f0;
+  --danger-border: #fdd8d8;
+  --warning: #a35200;
+  --warning-bg: #fff6e5;
+  --grid: #f0f0f0;
+  --axis: #d6d6d6;
+  --overlay: rgb(0 0 0 / 0.4);
+  --shadow-popover: 0 0 0 1px rgb(0 0 0 / 0.08), 0 4px 8px -4px rgb(0 0 0 / 0.04), 0 16px 24px -8px rgb(0 0 0 / 0.06);
+
+  /* Chart series: validated categorical order (see docs/ARCHITECTURE.md). */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+}
+
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0a0a0a;
+    --bg-subtle: #111111;
+    --bg-hover: #1f1f1f;
+    --bg-active: #292929;
+    --border: #242424;
+    --border-strong: #3d3d3d;
+    --fg: #ededed;
+    --fg-muted: #a1a1a1;
+    --fg-subtle: #7c7c7c;
+    --inverse-bg: #ededed;
+    --inverse-fg: #0a0a0a;
+    --inverse-hover: #cccccc;
+    --accent: #52a8ff;
+    --focus: #52a8ff;
+    --success: #62c073;
+    --success-bg: #0c2912;
+    --danger: #ff6166;
+    --danger-bg: #2a1314;
+    --danger-border: #58191c;
+    --warning: #ffb224;
+    --warning-bg: #2a1e05;
+    --grid: #1c1c1c;
+    --axis: #333333;
+    --overlay: rgb(0 0 0 / 0.6);
+    --shadow-popover: 0 0 0 1px rgb(255 255 255 / 0.1), 0 16px 24px -8px rgb(0 0 0 / 0.5);
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0a0a0a;
+  --bg-subtle: #111111;
+  --bg-hover: #1f1f1f;
+  --bg-active: #292929;
+  --border: #242424;
+  --border-strong: #3d3d3d;
+  --fg: #ededed;
+  --fg-muted: #a1a1a1;
+  --fg-subtle: #7c7c7c;
+  --inverse-bg: #ededed;
+  --inverse-fg: #0a0a0a;
+  --inverse-hover: #cccccc;
+  --accent: #52a8ff;
+  --focus: #52a8ff;
+  --success: #62c073;
+  --success-bg: #0c2912;
+  --danger: #ff6166;
+  --danger-bg: #2a1314;
+  --danger-border: #58191c;
+  --warning: #ffb224;
+  --warning-bg: #2a1e05;
+  --grid: #1c1c1c;
+  --axis: #333333;
+  --overlay: rgb(0 0 0 / 0.6);
+  --shadow-popover: 0 0 0 1px rgb(255 255 255 / 0.1), 0 16px 24px -8px rgb(0 0 0 / 0.5);
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+}
+
+@theme inline {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-bg: var(--bg);
+  --color-subtle: var(--bg-subtle);
+  --color-hover: var(--bg-hover);
+  --color-active: var(--bg-active);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-faint: var(--fg-subtle);
+  --color-inverse: var(--inverse-bg);
+  --color-inverse-fg: var(--inverse-fg);
+  --color-inverse-hover: var(--inverse-hover);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 20px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--focus) 25%, transparent);
+  }
+  dialog::backdrop {
+    background: var(--overlay);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
