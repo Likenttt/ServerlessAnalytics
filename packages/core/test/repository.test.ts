@@ -138,6 +138,20 @@ describe.each(DIALECTS)('Repository on %s', (_, open) => {
     expect(regions.rows.map((r) => r.value).sort()).toEqual(['CA', 'NY'])
   })
 
+  it('groups $error events by fingerprint', async () => {
+    const err = (fp: string, user: string, ts = NOW - HOUR) =>
+      row(appId, { name: '$error', distinct_id: user, ts, properties: { $fingerprint: fp, type: 'TypeError', message: `boom ${fp}` } })
+    await repo.insertEvents([err('aaaa', 'u1'), err('aaaa', 'u2'), err('aaaa', 'u2', NOW - 2 * HOUR), err('bbbb', 'u3'), row(appId)])
+    const range = trailingRange(NOW, 24, 'hour', 0)
+    const res = await repo.errorGroups(appId, range, [], 10)
+    expect(res.totals).toEqual({ events: 4, users: 3 })
+    expect(res.groups[0]).toMatchObject({ fingerprint: 'aaaa', events: 3, users: 2, type: 'TypeError', message: 'boom aaaa', lastSeen: NOW - HOUR })
+    const one = await repo.errorGroups(appId, range, [], 10, 'bbbb')
+    expect(one.groups).toHaveLength(1)
+    const samples = await repo.recentEvents(appId, { limit: 10, name: '$error', filters: [{ by: 'prop:$fingerprint', value: 'aaaa' }] })
+    expect(samples).toHaveLength(3)
+  })
+
   it('lists apps with a 7-day sparkline', async () => {
     await repo.insertEvents([row(appId, { ts: Date.now() - HOUR }), row(appId, { ts: Date.now() - 3 * DAY })])
     const [app] = await repo.listAppsWithStats(Date.now(), 0)

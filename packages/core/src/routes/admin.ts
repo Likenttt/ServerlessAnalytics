@@ -9,6 +9,8 @@ import type {
   App,
   AppWithStats,
   DefinitionsResponse,
+  ErrorDetailResponse,
+  ErrorsResponse,
   EventDefinition,
   EventsResponse,
   InsightsResponse,
@@ -16,6 +18,7 @@ import type {
   SystemResponse,
   TopResponse,
 } from '../types.js'
+import { ERROR_EVENT } from '../ingest/errors.js'
 import { DAY } from '../util.js'
 import { EVENT_NAME, PROPERTY_KEY, parseGroupBy } from '../validation.js'
 
@@ -218,6 +221,40 @@ adminRoutes.get('/apps/:id/properties', async (c) => {
   const [seen, definitions] = await Promise.all([services.repo.propertyKeys(app.id, event), services.repo.listDefinitions(app.id)])
   const defined = definitions.filter((d) => !event || d.name === event).flatMap((d) => d.properties.map((p) => p.name))
   return c.json({ keys: [...new Set([...defined, ...seen])] })
+})
+
+// Errors ----------------------------------------------------------------------
+
+adminRoutes.get('/apps/:id/errors', async (c) => {
+  const app = await loadApp(c)
+  const res: ErrorsResponse = await c.get('services').repo.errorGroups(app.id, parseRange(c), parseFilters(c), clampInt(c.req.query('limit'), 50, 1, 200))
+  return c.json(res)
+})
+
+adminRoutes.get('/apps/:id/errors/:fingerprint', async (c) => {
+  const { repo } = c.get('services')
+  const app = await loadApp(c)
+  const fingerprint = c.req.param('fingerprint')
+  const range = parseRange(c)
+  const filters = [...parseFilters(c), { by: 'prop:$fingerprint' as const, value: fingerprint }]
+  const top = (by: 'platform' | 'app_version' | 'os') =>
+    repo.top(app.id, range, by, 5, [...filters, { by: 'name' as const, value: ERROR_EVENT }]).then((r) => r.rows)
+  const [groups, series, samples, platform, appVersion, os] = await Promise.all([
+    repo.errorGroups(app.id, range, parseFilters(c), 1, fingerprint),
+    repo.insights(app.id, { range, event: ERROR_EVENT, metric: 'events', groupBy: null, filters, limit: 1 }),
+    repo.recentEvents(app.id, { limit: 20, name: ERROR_EVENT, filters }),
+    top('platform'),
+    top('app_version'),
+    top('os'),
+  ])
+  const res: ErrorDetailResponse = {
+    group: groups.groups[0] ?? null,
+    buckets: series.buckets,
+    points: series.series[0]?.points ?? series.buckets.map(() => 0),
+    samples,
+    breakdown: { platform, appVersion, os },
+  }
+  return c.json(res)
 })
 
 // Event definitions -----------------------------------------------------------

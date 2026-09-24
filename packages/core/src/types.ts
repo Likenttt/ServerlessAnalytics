@@ -123,6 +123,32 @@ export interface StoredEvent {
   properties: Record<string, unknown>
 }
 
+export interface ErrorGroup {
+  fingerprint: string
+  type: string | null
+  message: string | null
+  events: number
+  users: number
+  firstSeen: number
+  lastSeen: number
+}
+
+export interface ErrorsResponse {
+  range: TimeRange
+  totals: { events: number; users: number }
+  groups: ErrorGroup[]
+}
+
+export interface ErrorDetailResponse {
+  group: ErrorGroup | null
+  buckets: number[]
+  points: number[]
+  /** Most recent occurrences, newest first. */
+  samples: StoredEvent[]
+  /** Where it happens most. */
+  breakdown: { platform: TopResponse['rows']; appVersion: TopResponse['rows']; os: TopResponse['rows'] }
+}
+
 export interface EventsResponse {
   events: StoredEvent[]
 }
