@@ -46,6 +46,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - name: Smoke-test the CLI bundle
+        run: node packages/cli/dist/cli.js --help && node packages/cli/dist/cli.js --version
       - name: Bundle the Cloudflare Worker (dry run)
         run: pnpm --filter @serverless-analytics/cloudflare check
       - name: Build the Vercel output
