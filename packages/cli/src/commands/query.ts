@@ -38,7 +38,7 @@ function common(ctx: Context): Record<string, QueryValue> {
 
 async function target(ctx: Context) {
   const client = ctx.client()
-  const app = await resolveApp(client, ctx.args.required(2, 'app'))
+  const app = await resolveApp(client, ctx.args.required(0, 'app'))
   return { client, app, base: `/api/apps/${encodeURIComponent(app.id)}` }
 }
 
@@ -135,7 +135,7 @@ export async function queryFunnel(ctx: Context) {
 
 export async function queryErrors(ctx: Context) {
   const { client, base } = await target(ctx)
-  const fingerprint = ctx.args.positionals[3]
+  const fingerprint = ctx.args.positionals[1]
   if (fingerprint) {
     const d = await client.get<ErrorDetailResponse>(`${base}/errors/${encodeURIComponent(fingerprint)}${qs(common(ctx))}`)
     ctx.out.result(d, () => {
@@ -189,7 +189,7 @@ export async function queryEvents(ctx: Context) {
 /** sa track <app> <event> [--prop k=v]… — sends a real event with the app's write key. */
 export async function track(ctx: Context) {
   const { client, app } = await target(ctx)
-  const name = ctx.args.required(3, 'event')
+  const name = ctx.args.required(1, 'event')
   const properties = Object.fromEntries(ctx.args.all('prop').map(parseKeyValue))
   const event = {
     id: crypto.randomUUID(),

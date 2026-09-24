@@ -41,6 +41,8 @@ export async function main(argv: string[], runtime: Runtime = defaultRuntime, io
   }
   const key = [args.positionals[0], args.positionals[1]].filter(Boolean).join(' ')
   const command = COMMANDS[key] ?? COMMANDS[args.positionals[0] ?? '']
+  // Commands see only their own arguments: `sa query top <app>` → positionals ["<app>"].
+  const consumed = COMMANDS[key] ? 2 : 1
   if (!command || args.has('help')) {
     const topic = args.positionals[0] && HELP[args.positionals[0]]
     stderr((topic ?? HELP['']!) + '\n')
@@ -48,7 +50,7 @@ export async function main(argv: string[], runtime: Runtime = defaultRuntime, io
   }
 
   try {
-    const ctx = await Context.create(args, out, runtime)
+    const ctx = await Context.create(args.shift(consumed), out, runtime)
     await command(ctx)
     return 0
   } catch (error) {

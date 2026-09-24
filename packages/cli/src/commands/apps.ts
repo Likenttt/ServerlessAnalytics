@@ -49,7 +49,7 @@ export async function appsList(ctx: Context) {
 }
 
 export async function appsCreate(ctx: Context) {
-  const name = ctx.args.required(2, 'name')
+  const name = ctx.args.required(0, 'name')
   const { app } = await ctx.client().post<{ app: App }>('/api/apps', {
     name,
     schemaMode: ctx.args.has('strict') ? 'strict' : 'permissive',
@@ -59,13 +59,13 @@ export async function appsCreate(ctx: Context) {
 }
 
 export async function appsGet(ctx: Context) {
-  const app = await resolveApp(ctx.client(), ctx.args.required(2, 'app'))
+  const app = await resolveApp(ctx.client(), ctx.args.required(0, 'app'))
   ctx.out.result({ app }, () => describeApp(app, ctx.args.has('reveal')))
 }
 
 export async function appsUpdate(ctx: Context) {
   const client = ctx.client()
-  const app = await resolveApp(client, ctx.args.required(2, 'app'))
+  const app = await resolveApp(client, ctx.args.required(0, 'app'))
   const mode = ctx.args.get('schema-mode')
   if (mode && mode !== 'permissive' && mode !== 'strict') throw new UsageError('--schema-mode must be permissive or strict')
   const patch = { name: ctx.args.get('name'), schemaMode: mode, retentionDays: ctx.args.number('retention-days') }
@@ -76,7 +76,7 @@ export async function appsUpdate(ctx: Context) {
 
 export async function appsRotateKey(ctx: Context) {
   const client = ctx.client()
-  const app = await resolveApp(client, ctx.args.required(2, 'app'))
+  const app = await resolveApp(client, ctx.args.required(0, 'app'))
   ctx.requireYes(`Rotating stops the current write key of "${app.name}" immediately.`)
   const res = await client.post<{ app: App }>(`${appPath(app)}/rotate-key`)
   ctx.out.result(res, () => `✓ New write key: ${res.app.writeKey}`)
@@ -84,7 +84,7 @@ export async function appsRotateKey(ctx: Context) {
 
 export async function appsDelete(ctx: Context) {
   const client = ctx.client()
-  const app = await resolveApp(client, ctx.args.required(2, 'app'))
+  const app = await resolveApp(client, ctx.args.required(0, 'app'))
   ctx.requireYes(`This permanently deletes "${app.name}" and all of its events.`)
   ctx.out.result(await client.delete(appPath(app)), () => `✓ Deleted ${app.name}`)
 }
@@ -92,7 +92,7 @@ export async function appsDelete(ctx: Context) {
 // sa sampling get | set -------------------------------------------------------
 
 export async function samplingGet(ctx: Context) {
-  const app = await resolveApp(ctx.client(), ctx.args.required(2, 'app'))
+  const app = await resolveApp(ctx.client(), ctx.args.required(0, 'app'))
   ctx.out.result({ sampling: app.sampling }, () => describeApp(app, false).split('\n').find((l) => l.includes('sampling'))!.trim())
 }
 
@@ -104,7 +104,7 @@ const parseRate = (value: string, label: string) => {
 
 export async function samplingSet(ctx: Context) {
   const client = ctx.client()
-  const app = await resolveApp(client, ctx.args.required(2, 'app'))
+  const app = await resolveApp(client, ctx.args.required(0, 'app'))
   const current = app.sampling
   const mode = (ctx.args.get('mode') ?? (ctx.args.get('rate') ? 'sampled' : current.mode)) as SamplingConfig['mode']
   if (mode !== 'full' && mode !== 'sampled') throw new UsageError('--mode must be full or sampled')
@@ -143,7 +143,7 @@ export function parseProp(spec: string) {
 
 export async function eventsList(ctx: Context) {
   const client = ctx.client()
-  const app = await resolveApp(client, ctx.args.required(2, 'app'))
+  const app = await resolveApp(client, ctx.args.required(0, 'app'))
   const res = await client.get<DefinitionsResponse>(`${appPath(app)}/definitions`)
   ctx.out.result(res, () =>
     [
@@ -173,8 +173,8 @@ export async function eventsList(ctx: Context) {
 
 export async function eventsDefine(ctx: Context) {
   const client = ctx.client()
-  const app = await resolveApp(client, ctx.args.required(2, 'app'))
-  const name = ctx.args.required(3, 'event')
+  const app = await resolveApp(client, ctx.args.required(0, 'app'))
+  const name = ctx.args.required(1, 'event')
   const res = await client.post<{ definition: EventDefinition }>(`${appPath(app)}/definitions`, {
     name,
     description: ctx.args.get('description') ?? '',
@@ -186,8 +186,8 @@ export async function eventsDefine(ctx: Context) {
 
 export async function eventsUpdate(ctx: Context) {
   const client = ctx.client()
-  const app = await resolveApp(client, ctx.args.required(2, 'app'))
-  const name = ctx.args.required(3, 'event')
+  const app = await resolveApp(client, ctx.args.required(0, 'app'))
+  const name = ctx.args.required(1, 'event')
   const status = ctx.args.get('status')
   if (status && status !== 'active' && status !== 'archived') throw new UsageError('--status must be active or archived')
   const props = ctx.args.all('prop')
@@ -198,8 +198,8 @@ export async function eventsUpdate(ctx: Context) {
 
 export async function eventsDelete(ctx: Context) {
   const client = ctx.client()
-  const app = await resolveApp(client, ctx.args.required(2, 'app'))
-  const name = ctx.args.required(3, 'event')
+  const app = await resolveApp(client, ctx.args.required(0, 'app'))
+  const name = ctx.args.required(1, 'event')
   ctx.requireYes(`This deletes the definition of "${name}" (events are kept).`)
   ctx.out.result(await client.delete(`${appPath(app)}/definitions/${encodeURIComponent(name)}`), () => `✓ Deleted definition ${name}`)
 }

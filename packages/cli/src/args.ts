@@ -45,6 +45,10 @@ export class Args {
   get positionals() {
     return this.p.positionals
   }
+  /** Drops the first n positionals (the command words). */
+  shift(n: number): Args {
+    return new Args({ ...this.p, positionals: this.p.positionals.slice(n) })
+  }
   has(name: string) {
     return this.p.switches.has(name)
   }

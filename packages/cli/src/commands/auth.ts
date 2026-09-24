@@ -133,7 +133,7 @@ export async function migrate(ctx: Context) {
 }
 
 export async function tokens(ctx: Context) {
-  const sub = ctx.args.positionals[1] ?? 'list'
+  const sub = ctx.args.positionals[0] ?? 'list'
   const client = ctx.client()
   if (sub === 'list') {
     const res = await client.get<{ tokens: { id: string; name: string; prefix: string; createdAt: number; lastUsedAt: number | null }[] }>('/api/tokens')
@@ -150,11 +150,11 @@ export async function tokens(ctx: Context) {
       ),
     )
   } else if (sub === 'create') {
-    const name = ctx.args.required(2, 'name')
+    const name = ctx.args.required(1, 'name')
     const res = await client.post<{ token: { id: string }; secret: string }>('/api/tokens', { name })
     ctx.out.result(res, () => `${res.secret}\n\nStore it now; it won't be shown again. Use it as SA_TOKEN.`)
   } else if (sub === 'revoke') {
-    const id = ctx.args.required(2, 'token-id')
+    const id = ctx.args.required(1, 'token-id')
     ctx.requireYes(`This revokes token ${id}.`)
     ctx.out.result(await client.delete(`/api/tokens/${encodeURIComponent(id)}`), () => `✓ Revoked ${id}`)
   } else throw new UsageError(`Unknown command: tokens ${sub}`)
