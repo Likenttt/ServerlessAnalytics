@@ -225,6 +225,23 @@ describe('HTTP API', () => {
     expect(defs.definitions.find((d) => d.name === 'purchase')!.properties).toHaveLength(1)
   })
 
+  it('tracks errors, skipping definition checks for $ events in strict mode', async () => {
+    const app = await bootstrap(t)
+    await t.request(`/api/apps/${app.id}`, { method: 'PATCH', json: { schemaMode: 'strict' } })
+    const res = await t.request('/v1/batch', {
+      method: 'POST',
+      headers: { 'x-write-key': app.writeKey },
+      json: { events: [1, 2].map((n) => ({ name: '$error', anonymousId: `u${n}`, properties: { type: 'TypeError', message: `bad id ${n}`, fatal: true } })) },
+    })
+    expect(((await res.json()) as IngestResponse).accepted).toBe(2)
+    const list = (await (await t.request(`/api/apps/${app.id}/errors`)).json()) as { groups: { fingerprint: string; events: number; users: number }[] }
+    expect(list.groups).toHaveLength(1)
+    expect(list.groups[0]).toMatchObject({ events: 2, users: 2 })
+    const detail = await (await t.request(`/api/apps/${app.id}/errors/${list.groups[0]!.fingerprint}?range=24h`)).json()
+    expect(detail).toMatchObject({ group: { events: 2 }, samples: [{ name: '$error' }, { name: '$error' }] })
+    expect((detail as { points: number[] }).points.reduce((a, b) => a + b, 0)).toBe(2)
+  })
+
   it('rotating the key invalidates the old one', async () => {
     const app = await bootstrap(t)
     const send = (key: string) =>

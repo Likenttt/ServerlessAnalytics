@@ -3,6 +3,7 @@ import type { EventRow } from '../db/schema.js'
 import type { App, EventDefinition, IngestResponse } from '../types.js'
 import { randomString } from '../util.js'
 import { EVENT_NAME, MAX_PROPERTIES, MAX_PROPERTIES_BYTES, PROPERTY_KEY } from '../validation.js'
+import { ERROR_EVENT, prepareErrorProperties } from './errors.js'
 import { parseUserAgent } from './ua.js'
 
 // Wire format: see docs/HTTP_API.md.
@@ -135,14 +136,15 @@ export function processBatch(
       return
     }
 
-    const properties = event.properties ?? {}
+    const properties = event.name === ERROR_EVENT ? prepareErrorProperties(event.properties ?? {}) : (event.properties ?? {})
     const propError = checkProperties(properties)
     if (propError) {
       rejected.push({ index, id: event.id, reason: propError })
       return
     }
 
-    if (defs) {
+    // `$`-prefixed events ($error, $pageview) are built-in and skip definition checks.
+    if (defs && !event.name.startsWith('$')) {
       const defError = checkDefinition(event, defs.get(event.name))
       if (defError) {
         rejected.push({ index, id: event.id, reason: defError })

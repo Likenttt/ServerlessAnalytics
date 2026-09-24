@@ -3,6 +3,7 @@ import type {
   App,
   AppWithStats,
   DefinitionStatus,
+  ErrorsResponse,
   EventDefinition,
   GroupBy,
   InsightsResponse,
@@ -15,6 +16,7 @@ import type {
   TopResponse,
 } from '../types.js'
 import { DAY, INTERVAL_MS, bucketOf, newAppId, newWriteKey, rangeBuckets, trailingRange } from '../util.js'
+import { ERROR_EVENT } from '../ingest/errors.js'
 import type { SqlDialect } from './dialect.js'
 import type { AppsTable, Database, EventDefinitionsTable, EventRow, EventsTable } from './schema.js'
 
@@ -235,9 +237,10 @@ export class Repository {
     return this.dialect.insertEvents(this.db, rows)
   }
 
-  async recentEvents(appId: string, opts: { limit: number; before?: number; name?: string }): Promise<StoredEvent[]> {
+  async recentEvents(appId: string, opts: { limit: number; before?: number; name?: string; filters?: Filter[] }): Promise<StoredEvent[]> {
     let q = this.db.selectFrom('events').selectAll().where('app_id', '=', appId)
     if (opts.name) q = q.where('name', '=', opts.name)
+    for (const f of opts.filters ?? []) q = q.where(this.groupExpr(f.by), '=', f.value)
     if (opts.before) q = q.where('ts', '<', opts.before)
     const rows = await q.orderBy('ts', 'desc').limit(opts.limit).execute()
     return rows.map((r) => this.toStoredEvent(r))
@@ -409,6 +412,45 @@ export class Repository {
         total: Number(t.v),
         points: fill(rows.filter((r) => (r.k == null ? null : String(r.k)) === keys[i])),
       })),
+    }
+  }
+
+  /** Error groups ($error events by fingerprint), most frequent first. */
+  async errorGroups(appId: string, range: TimeRange, filters: Filter[], limit: number, fingerprint?: string): Promise<ErrorsResponse> {
+    const fp = this.dialect.propText('$fingerprint')
+    let base = this.scoped(appId, range.from, range.to, ERROR_EVENT, filters)
+    if (fingerprint) base = base.where(fp, '=', fingerprint)
+    const [groups, totals] = await Promise.all([
+      base
+        .select([
+          fp.as('fingerprint'),
+          sql<string | null>`MAX(${this.dialect.propText('type')})`.as('type'),
+          sql<string | null>`MAX(${this.dialect.propText('message')})`.as('message'),
+          sql<number>`COUNT(*)`.as('events'),
+          sql<number>`COUNT(DISTINCT distinct_id)`.as('users'),
+          sql<number>`MIN(ts)`.as('first_seen'),
+          sql<number>`MAX(ts)`.as('last_seen'),
+        ])
+        .groupBy(sql`1`)
+        .orderBy(sql`4`, 'desc')
+        .limit(limit)
+        .execute(),
+      base.select([sql<number>`COUNT(*)`.as('events'), sql<number>`COUNT(DISTINCT distinct_id)`.as('users')]).executeTakeFirst(),
+    ])
+    return {
+      range,
+      totals: { events: Number(totals?.events ?? 0), users: Number(totals?.users ?? 0) },
+      groups: groups
+        .filter((g) => g.fingerprint != null)
+        .map((g) => ({
+          fingerprint: String(g.fingerprint),
+          type: g.type,
+          message: g.message,
+          events: Number(g.events),
+          users: Number(g.users),
+          firstSeen: Number(g.first_seen),
+          lastSeen: Number(g.last_seen),
+        })),
     }
   }
 

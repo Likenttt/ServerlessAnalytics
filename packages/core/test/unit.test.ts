@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ConfigError, resolveConfig } from '../src/config.js'
 import { processBatch } from '../src/ingest/process.js'
+import { prepareErrorProperties } from '../src/ingest/errors.js'
 import { parseUserAgent } from '../src/ingest/ua.js'
 import { chunkBySize, verifyQstashSignature } from '../src/queue.js'
 import type { App } from '../src/types.js'
@@ -156,5 +157,24 @@ describe('chunkBySize', () => {
     expect(chunks.length).toBeGreaterThan(1)
     expect(chunks.flat()).toHaveLength(10)
     for (const chunk of chunks) expect(JSON.stringify(chunk).length).toBeLessThan(1000)
+  })
+})
+
+describe('prepareErrorProperties', () => {
+  const fp = (p: Record<string, unknown>) => prepareErrorProperties(p).$fingerprint
+  const stack = 'TypeError: x\n    at render (https://app.test/assets/index-abc.js:10:42)\n    at main (https://app.test/assets/index-abc.js:3:1)'
+
+  it('groups occurrences that differ only in ids, numbers and positions', () => {
+    const a = fp({ type: 'TypeError', message: "Cannot read 'x' of user 123", stack })
+    const b = fp({ type: 'TypeError', message: "Cannot read 'y' of user 456", stack: stack.replace(':10:42', ':11:7') })
+    expect(a).toBe(b)
+    expect(fp({ type: 'RangeError', message: "Cannot read 'x' of user 123", stack })).not.toBe(a)
+  })
+
+  it('truncates large stacks and fills defaults', () => {
+    const out = prepareErrorProperties({ message: 'boom', stack: 'x'.repeat(50_000) })
+    expect((out.stack as string).length).toBe(6000)
+    expect(out).toMatchObject({ type: 'Error', message: 'boom' })
+    expect(out.$fingerprint).toMatch(/^[0-9a-f]{8}$/)
   })
 })
