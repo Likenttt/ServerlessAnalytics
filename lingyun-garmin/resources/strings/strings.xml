@@ -1,4 +1,43 @@
 <strings>
   <string id="AppName" scope="glance">凌云志</string>
   <string id="GlanceStart" scope="glance">点开 开始修炼</string>
+  <string id="GlanceDetail">日课 $1$/3 · 修为 $2$</string>
+
+  <!-- 境界 -->
+  <string id="Realm0">凡夫俗子</string>
+  <string id="Realm1">初窥门径</string>
+  <string id="Realm2">登堂入室</string>
+  <string id="Realm3">三流好手</string>
+  <string id="Realm4">二流高手</string>
+  <string id="Realm5">一流高手</string>
+  <string id="Realm6">绝顶高手</string>
+  <string id="Realm7">一代宗师</string>
+  <string id="Realm8">御风宗师</string>
+
+  <!-- 门派：三流时由最强属性决定 -->
+  <string id="SectNone">布衣</string>
+  <string id="Sect0">少林</string>
+  <string id="Sect1">逍遥</string>
+  <string id="Sect2">武当</string>
+  <string id="Sect3">峨眉</string>
+
+  <!-- 属性 -->
+  <string id="Attr0">体魄</string>
+  <string id="Attr1">轻功</string>
+  <string id="Attr2">内力</string>
+  <string id="Attr3">心境</string>
+
+  <!-- 修为与突破 -->
+  <string id="XpFmt">修为 $1$ / $2$</string>
+  <string id="XpMax">修为 $1$</string>
+  <string id="CanBreak">已可突破！</string>
+  <string id="AtPeak">已臻化境</string>
+  <string id="NeedXp">还差 $1$ 修为</string>
+  <string id="NeedAttr">$1$ 需达 $2$</string>
+  <string id="NeedSteps">需单日 $1$ 步</string>
+  <string id="NeedFloors">需单日爬 $1$ 层</string>
+  <string id="NeedIm">需单日强度 $1$ 分</string>
+  <string id="NeedStreak">连续日课 $2$/$1$ 天</string>
+  <string id="Intro">一介凡夫 志在凌云</string>
+  <string id="AwayFmt">闭关归来 修为+$1$</string>
 </strings>
