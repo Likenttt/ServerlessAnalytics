@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { Dialog } from '../components/dialog'
 import { PlusIcon } from '../components/icons'
 import { Page } from '../components/layout'
-import { Badge, Button, CopyButton, Field, Input, SettingsCard, Skeleton } from '../components/ui'
+import { Badge, Button, CodeBlock, CopyButton, Field, Input, SettingsCard, Skeleton } from '../components/ui'
 import { formatRelative } from '../lib/format'
 import { api } from '../lib/api'
 
@@ -98,7 +98,7 @@ function TokensCard() {
         open={creating}
         onClose={close}
         title={secret ? 'Copy your token' : 'Create access token'}
-        description={secret ? 'This is the only time the token is shown.' : 'For CI or scripts: pass it as SA_TOKEN, or as Authorization: Bearer <token>.'}
+        description={secret ? 'This is the only time the token is shown.' : 'For agents (MCP), CI or scripts: pass it as SA_TOKEN, or as Authorization: Bearer <token>.'}
         onSubmit={() => !secret && name.trim() && create.mutate()}
         footer={
           secret ? (
@@ -116,10 +116,16 @@ function TokensCard() {
         }
       >
         {secret ? (
-          <div className="flex h-9 items-center gap-2 rounded-md border border-border bg-subtle pr-0.5 pl-3">
-            <code className="min-w-0 flex-1 truncate font-mono text-[12.5px]">{secret}</code>
-            <CopyButton value={secret} label="Copy token" />
-          </div>
+          <>
+            <div className="flex h-9 items-center gap-2 rounded-md border border-border bg-subtle pr-0.5 pl-3">
+              <code className="min-w-0 flex-1 truncate font-mono text-[12.5px]">{secret}</code>
+              <CopyButton value={secret} label="Copy token" />
+            </div>
+            <CodeBlock
+              label="Connect an agent (MCP), e.g. Claude Code"
+              code={`claude mcp add --transport http serverless-analytics ${window.location.origin}/mcp \\\n  --header "Authorization: Bearer ${secret}"`}
+            />
+          </>
         ) : (
           <Field label="Name" htmlFor="token-name">
             <Input id="token-name" autoFocus maxLength={64} placeholder="GitHub Actions" value={name} onChange={(e) => setName(e.target.value)} />
