@@ -19,6 +19,8 @@ const contextSchema = z.object({
   device: text(),
   locale: text(35),
   country: text(2),
+  region: text(8),
+  channel: text(64),
 })
 
 const eventSchema = z.object({
@@ -47,6 +49,7 @@ type Context = z.infer<typeof contextSchema>
 export interface RequestInfo {
   userAgent: string | null
   country: string | null
+  region: string | null
   acceptLanguage: string | null
   receivedAt: number
 }
@@ -183,6 +186,9 @@ export function processBatch(
       device: clean(ctx.device) ?? (useUA ? ua.device : null),
       country: clean(ctx.country)?.toUpperCase() ?? info.country,
       locale: clean(ctx.locale) ?? localeFrom(info.acceptLanguage),
+      channel: clean(ctx.channel)?.toLowerCase() ?? null,
+      // Only use the request's region when the country also came from the request.
+      region: clean(ctx.region)?.toUpperCase() ?? (clean(ctx.country) ? null : info.region),
       properties,
     })
   })

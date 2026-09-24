@@ -46,6 +46,9 @@ async function ingest(c: Context<AppEnv>, raw: unknown) {
   const { rows, result } = processBatch(batch, app, definitions, {
     userAgent: c.req.header('user-agent') ?? null,
     country: normalizeCountry(c.req.header('cf-ipcountry') ?? c.req.header('x-vercel-ip-country')),
+    region: normalizeRegion(
+      (c.req.raw as Request & { cf?: { regionCode?: string } }).cf?.regionCode ?? c.req.header('x-vercel-ip-country-region'),
+    ),
     acceptLanguage: c.req.header('accept-language') ?? null,
     receivedAt: Date.now(),
   })
@@ -53,6 +56,8 @@ async function ingest(c: Context<AppEnv>, raw: unknown) {
   if (rows.length > 0) await services.queue.enqueue(rows, { origin: publicOrigin(c) })
   return c.json(result satisfies IngestResponse)
 }
+
+const normalizeRegion = (value: string | undefined) => (value && /^[A-Za-z0-9]{1,3}$/.test(value) ? value.toUpperCase() : null)
 
 const normalizeCountry = (value: string | undefined) => (value && /^[A-Za-z]{2}$/.test(value) && value !== 'XX' ? value.toUpperCase() : null)
 

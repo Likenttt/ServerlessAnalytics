@@ -45,7 +45,19 @@ export interface DefinitionsResponse {
 }
 
 /** Built-in columns that can be used for breakdowns and filters. */
-export const DIMENSIONS = ['name', 'platform', 'os', 'os_version', 'browser', 'app_version', 'device', 'country', 'locale'] as const
+export const DIMENSIONS = [
+  'name',
+  'platform',
+  'channel',
+  'country',
+  'region',
+  'os',
+  'os_version',
+  'browser',
+  'app_version',
+  'device',
+  'locale',
+] as const
 export type Dimension = (typeof DIMENSIONS)[number]
 
 /** A breakdown/filter target: a built-in dimension or `prop:<key>`. */
@@ -106,6 +118,8 @@ export interface StoredEvent {
   device: string | null
   country: string | null
   locale: string | null
+  channel: string | null
+  region: string | null
   properties: Record<string, unknown>
 }
 

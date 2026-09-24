@@ -41,6 +41,10 @@ export interface EventsTable {
   device: string | null
   country: string | null
   locale: string | null
+  /** Acquisition / distribution channel, e.g. appstore, googleplay, huawei, utm source. */
+  channel: string | null
+  /** Subdivision of the country (ISO 3166-2 suffix, e.g. CA, 44). */
+  region: string | null
   /** TEXT (JSON) on SQLite, JSONB on Postgres. */
   properties: unknown
 }
@@ -75,6 +79,10 @@ export interface EventRow {
   device: string | null
   country: string | null
   locale: string | null
+  /** Acquisition / distribution channel, e.g. appstore, googleplay, huawei, utm source. */
+  channel: string | null
+  /** Subdivision of the country (ISO 3166-2 suffix, e.g. CA, 44). */
+  region: string | null
   properties: Record<string, unknown>
 }
 
@@ -95,5 +103,7 @@ export const EVENT_COLUMNS = [
   'device',
   'country',
   'locale',
+  'channel',
+  'region',
   'properties',
 ] as const satisfies readonly (keyof EventRow)[]
