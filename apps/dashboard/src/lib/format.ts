@@ -8,6 +8,28 @@ const decimal = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
 export const formatNumber = (n: number) => integer.format(n)
 export const formatCompact = (n: number) => (Math.abs(n) < 10_000 ? integer.format(n) : compact.format(n))
 export const formatPercent = (n: number) => percent.format(n)
+/** Metric values: counts are integers; sums/averages/ratios may be fractional. */
+export const formatMetric = (n: number, metric: string) =>
+  metric === 'events' || metric === 'users' ? integer.format(n) : Math.abs(n) >= 10_000 ? compact.format(n) : decimal.format(n)
+
+export function metricLabel(metric: string): string {
+  if (metric === 'users') return 'Unique users'
+  if (metric === 'per_user') return 'Events per user'
+  if (metric.startsWith('sum:')) return `Sum of ${metric.slice(4)}`
+  if (metric.startsWith('avg:')) return `Average ${metric.slice(4)}`
+  return 'Events'
+}
+
+export function formatDuration(ms: number): string {
+  const s = Math.round(ms / 1000)
+  if (s < 60) return `${s}s`
+  const m = Math.round(s / 60)
+  if (m < 60) return `${m}m`
+  const h = Math.round(m / 6) / 10
+  if (h < 48) return `${h}h`
+  return `${Math.round(h / 2.4) / 10}d`
+}
+
 export const formatDecimal = (n: number) => decimal.format(n)
 
 const hour = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })

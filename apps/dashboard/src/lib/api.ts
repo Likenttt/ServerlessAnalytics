@@ -1,4 +1,8 @@
 import type {
+  ActiveUsers,
+  ErrorDetailResponse,
+  ErrorsResponse,
+  FunnelResponse,
   ApiError as ApiErrorBody,
   App,
   AppWithStats,
@@ -76,6 +80,12 @@ export const api = {
   insights: (id: string, q: Query) => request<InsightsResponse>(`${app(id)}/insights${qs({ ...q, tz: tzOffset() })}`),
   events: (id: string, q: Query) => request<EventsResponse>(`${app(id)}/events${qs(q)}`),
   properties: (id: string, event: string | null) => request<{ keys: string[] }>(`${app(id)}/properties${qs({ event })}`),
+
+  activeUsers: (id: string, q: Query) => request<ActiveUsers>(`${app(id)}/active-users${qs(q)}`),
+  funnel: (id: string, q: Query) => request<FunnelResponse>(`${app(id)}/funnel${qs({ ...q, tz: tzOffset() })}`),
+  errors: (id: string, q: Query) => request<ErrorsResponse>(`${app(id)}/errors${qs({ ...q, tz: tzOffset() })}`),
+  errorDetail: (id: string, fingerprint: string, q: Query) =>
+    request<ErrorDetailResponse>(`${app(id)}/errors/${encodeURIComponent(fingerprint)}${qs({ ...q, tz: tzOffset() })}`),
 
   definitions: (id: string) => request<DefinitionsResponse>(`${app(id)}/definitions`),
   createDefinition: (id: string, body: DefinitionInput & { name: string }) =>
