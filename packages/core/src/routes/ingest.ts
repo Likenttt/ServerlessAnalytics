@@ -1,6 +1,6 @@
 import { Hono, type Context } from 'hono'
 import { cors } from 'hono/cors'
-import { apiError, readBody, type AppEnv } from '../http.js'
+import { apiError, publicOrigin, readBody, type AppEnv } from '../http.js'
 import { batchSchema, processBatch, type IncomingBatch } from '../ingest/process.js'
 import { appForWriteKey, definitionsForApp } from '../services.js'
 import type { IngestResponse } from '../types.js'
@@ -50,7 +50,7 @@ async function ingest(c: Context<AppEnv>, raw: unknown) {
     receivedAt: Date.now(),
   })
 
-  if (rows.length > 0) await services.queue.enqueue(rows, { origin: new URL(c.req.url).origin })
+  if (rows.length > 0) await services.queue.enqueue(rows, { origin: publicOrigin(c) })
   return c.json(result satisfies IngestResponse)
 }
 

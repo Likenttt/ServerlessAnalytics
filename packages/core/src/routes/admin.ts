@@ -3,7 +3,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { z } from 'zod'
 import { SESSION_COOKIE, SESSION_TTL_SECONDS, checkPassword, createSessionToken, verifySessionToken } from '../auth.js'
 import { migrate, migrationStatus } from '../db/migrations.js'
-import { apiError, clampInt, parseFilters, parseRange, readJson, type AppEnv } from '../http.js'
+import { apiError, clampInt, parseFilters, parseRange, publicOrigin, readJson, type AppEnv } from '../http.js'
 import { invalidateApp, runRetention } from '../services.js'
 import type {
   App,
@@ -47,7 +47,7 @@ adminRoutes.post('/auth/login', async (c) => {
   }
   setCookie(c, SESSION_COOKIE, await createSessionToken(config.auth.sessionSecret), {
     httpOnly: true,
-    secure: new URL(c.req.url).protocol === 'https:',
+    secure: publicOrigin(c).startsWith('https:'),
     sameSite: 'Lax',
     path: '/',
     maxAge: SESSION_TTL_SECONDS,
@@ -69,7 +69,7 @@ const requireSession: MiddlewareHandler<AppEnv> = async (c, next) => {
   // mutating requests whose Origin doesn't match.
   if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
     const origin = c.req.header('origin')
-    if (origin && origin !== new URL(c.req.url).origin) throw apiError(403, 'bad_origin', 'Cross-origin request rejected')
+    if (origin && origin !== publicOrigin(c)) throw apiError(403, 'bad_origin', 'Cross-origin request rejected')
   }
   await next()
 }

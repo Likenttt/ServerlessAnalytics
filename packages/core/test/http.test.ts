@@ -27,14 +27,14 @@ function setup(extraEnv: Record<string, unknown> = {}) {
   const app = createApp({ services: () => createServices(platform()), env: () => env })
 
   let cookie = ''
-  const request = async (path: string, init: RequestInit & { json?: unknown } = {}) => {
+  const request = async (path: string, init: RequestInit & { json?: unknown; base?: string } = {}) => {
     const headers = new Headers(init.headers)
     if (cookie) headers.set('cookie', cookie)
     if (init.json !== undefined) {
       headers.set('content-type', 'application/json')
       init.body = JSON.stringify(init.json)
     }
-    const res = await app.request(`https://analytics.test${path}`, { ...init, headers })
+    const res = await app.request(`${init.base ?? 'https://analytics.test'}${path}`, { ...init, headers })
     const setCookie = res.headers.get('set-cookie')
     if (setCookie) cookie = setCookie.split(';')[0]!
     return res
@@ -83,6 +83,27 @@ describe('HTTP API', () => {
     await bootstrap(t)
     const res = await t.request('/api/apps', { method: 'POST', json: { name: 'x' }, headers: { origin: 'https://evil.test' } })
     expect(res.status).toBe(403)
+  })
+
+  it('accepts same-origin mutations behind a TLS-terminating proxy', async () => {
+    // Vercel's Node runtime sees http:// URLs; the browser's Origin is https://.
+    const proxied = { base: 'http://analytics.test', headers: { 'x-forwarded-proto': 'https', origin: 'https://analytics.test' } }
+    const login = await t.request('/api/auth/login', { method: 'POST', json: { password: PASSWORD }, ...proxied })
+    expect(login.headers.get('set-cookie')).toContain('Secure')
+    expect((await t.request('/api/system/migrate', { method: 'POST', ...proxied })).status).toBe(200)
+    expect((await t.request('/api/apps', { method: 'POST', json: { name: 'proxied' }, ...proxied })).status).toBe(201)
+    // Without the forwarded header the same Origin doesn't match.
+    const direct = await t.request('/api/apps', { method: 'POST', json: { name: 'x' }, base: 'http://analytics.test', headers: { origin: 'https://analytics.test' } })
+    expect(direct.status).toBe(403)
+  })
+
+  it('handles definition names with spaces and colons', async () => {
+    const app = await bootstrap(t)
+    const name = 'Checkout: Step 2'
+    expect((await t.request(`/api/apps/${app.id}/definitions`, { method: 'POST', json: { name } })).status).toBe(201)
+    const patched = await t.request(`/api/apps/${app.id}/definitions/${encodeURIComponent(name)}`, { method: 'PATCH', json: { description: 'x' } })
+    expect(await patched.json()).toMatchObject({ definition: { name, description: 'x' } })
+    expect((await t.request(`/api/apps/${app.id}/definitions/${encodeURIComponent(name)}`, { method: 'DELETE' })).status).toBe(200)
   })
 
   it('ingests a batch and serves analytics', async () => {

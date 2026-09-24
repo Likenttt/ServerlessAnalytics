@@ -14,6 +14,17 @@ export function apiError(status: ContentfulStatusCode, code: string, message: st
   return new HTTPException(status, { res: Response.json(body, { status }) })
 }
 
+/**
+ * The origin the browser sees. Behind TLS-terminating proxies (Vercel's Node
+ * runtime) the request URL is http://, so honor X-Forwarded-Proto/Host.
+ */
+export function publicOrigin(c: Context): string {
+  const url = new URL(c.req.url)
+  const proto = c.req.header('x-forwarded-proto')?.split(',')[0]?.trim()
+  const host = c.req.header('x-forwarded-host')?.split(',')[0]?.trim()
+  return `${proto === 'https' || proto === 'http' ? proto : url.protocol.slice(0, -1)}://${host || url.host}`
+}
+
 /** Reads a request body with a size cap, transparently handling gzip. */
 export async function readBody(request: Request, maxBytes: number): Promise<string> {
   const declared = Number(request.headers.get('content-length') ?? 0)

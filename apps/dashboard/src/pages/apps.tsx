@@ -148,7 +148,7 @@ export function AppsPage() {
                 <Sparkline points={app.sparkline} />
                 <div className="flex items-center justify-between text-[13px] text-muted">
                   <span>
-                    <span className="font-medium text-fg tabular">{formatCompact(app.events24h)}</span> events in 24h
+                    <span className="font-medium text-fg tabular">{formatCompact(app.events24h)}</span> {app.events24h === 1 ? 'event' : 'events'} in 24h
                   </span>
                   <span title={new Date(app.createdAt).toLocaleString()}>Created {formatRelative(app.createdAt)}</span>
                 </div>
