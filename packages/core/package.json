@@ -1,0 +1,30 @@
+{
+  "name": "@serverless-analytics/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./d1": "./src/db/d1.ts",
+    "./postgres": "./src/db/postgres.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "hono": "^4.13.9",
+    "kysely": "^0.29.6",
+    "pg": "^8.23.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260924.1",
+    "@electric-sql/pglite": "^0.5.8",
+    "@types/node": "^26.6.2",
+    "@types/pg": "^8.23.1",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.1"
+  }
+}
