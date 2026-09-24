@@ -144,6 +144,7 @@ function AccountMenu() {
 const TABS = [
   { href: '', label: 'Overview' },
   { href: '/explore', label: 'Explore' },
+  { href: '/errors', label: 'Errors' },
   { href: '/live', label: 'Live' },
   { href: '/events', label: 'Events' },
   { href: '/settings', label: 'Settings' },

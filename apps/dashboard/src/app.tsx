@@ -7,6 +7,7 @@ import { api } from './lib/api'
 import { AppSettingsPage } from './pages/app-settings'
 import { AppsPage } from './pages/apps'
 import { DefinitionsPage } from './pages/definitions'
+import { ErrorDetailPage, ErrorsPage } from './pages/errors'
 import { ExplorePage } from './pages/explore'
 import { LivePage } from './pages/live'
 import { LoginPage } from './pages/login'
@@ -35,6 +36,12 @@ function AppRoutes() {
         </Route>
         <Route path="/apps/:appId/explore">
           <ExplorePage appId={appId} />
+        </Route>
+        <Route path="/apps/:appId/errors">
+          <ErrorsPage appId={appId} />
+        </Route>
+        <Route path="/apps/:appId/errors/:fingerprint">
+          {(params: { fingerprint: string }) => <ErrorDetailPage appId={appId} fingerprint={params.fingerprint} />}
         </Route>
         <Route path="/apps/:appId/live">
           <LivePage appId={appId} />
