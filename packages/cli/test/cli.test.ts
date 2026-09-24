@@ -170,3 +170,36 @@ describe('serverless-analytics-cli', () => {
     expect(r.error.code).toBe('login_denied')
   })
 })
+
+describe('sa mcp (stdio)', () => {
+  it('serves MCP tools over stdin/stdout with the saved login', async () => {
+    const login = await sa(['login', '--endpoint', base, '--name', 'mcp stdio'])
+    expect(login.code).toBe(0)
+    const { PassThrough } = await import('node:stream')
+    const { Context } = await import('../src/context.js')
+    const { Args, parseArgs } = await import('../src/args.js')
+    const { Output } = await import('../src/output.js')
+    const { mcp } = await import('../src/commands/mcp.js')
+
+    const input = new PassThrough()
+    const lines: any[] = []
+    const ctx = await Context.create(new Args(parseArgs([], new Set())), new Output(true, () => {}, () => {}), runtime())
+    const done = mcp(ctx, { input, write: (l) => lines.push(JSON.parse(l)) })
+    const send = (m: unknown) => input.write(JSON.stringify(m) + '\n')
+    send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } } })
+    send({ jsonrpc: '2.0', method: 'notifications/initialized' })
+    send({ jsonrpc: '2.0', id: 2, method: 'tools/list' })
+    send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'list_apps', arguments: {} } })
+    input.write('not json\n')
+    input.end()
+    await done
+
+    const byId = Object.fromEntries(lines.filter((l) => l.id !== null).map((l) => [l.id, l]))
+    expect(byId[1].result.serverInfo.name).toBe('serverless-analytics')
+    expect(byId[2].result.tools.length).toBeGreaterThan(15)
+    const apps = JSON.parse(byId[3].result.content[0].text).apps
+    expect(apps.map((a: { name: string }) => a.name)).toContain('Demo App')
+    expect(lines.find((l) => l.id === null)).toMatchObject({ error: { code: -32700 } })
+    expect(lines).toHaveLength(4) // the notification gets no reply
+  })
+})

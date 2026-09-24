@@ -1,6 +1,7 @@
 import type { Context } from '../context.js'
 import { appsCreate, appsDelete, appsGet, appsList, appsRotateKey, appsUpdate, eventsDefine, eventsDelete, eventsList, eventsUpdate, samplingGet, samplingSet } from './apps.js'
 import { login, logout, migrate, tokens, whoami } from './auth.js'
+import { mcp } from './mcp.js'
 import { queryActive, queryErrors, queryEvents, queryFunnel, queryOverview, queryTop, queryTrend, snippet, track } from './query.js'
 
 export type Command = (ctx: Context) => Promise<void>
@@ -34,6 +35,7 @@ export const COMMANDS: Record<string, Command> = {
   'query events': queryEvents,
   track,
   snippet,
+  mcp: (ctx) => mcp(ctx),
 }
 
 const GLOBAL = `Global options:
@@ -82,6 +84,10 @@ Query (--range 24h|7d|30d|90d or --from/--to · --filter field=value… · --int
 Integrate
   snippet <app> [--lang js|html|curl|kotlin|swift]  Integration code with endpoint and write key
   track <app> <event> [--prop k=v]… [--user U]      Send a test event (k:=<json> for raw JSON)
+
+Agents
+  mcp                                               Run a local MCP server over stdio (uses this login)
+                                                    Remote alternative: <endpoint>/mcp with an access token
 
 ${GLOBAL}
 
