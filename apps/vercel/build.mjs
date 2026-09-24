@@ -50,7 +50,7 @@ await writeFile(
       version: 3,
       routes: [
         { src: '^/assets/(.*)$', headers: { 'cache-control': 'public, max-age=31536000, immutable' }, continue: true },
-        { src: '^/(?:api|v1)(?:/.*)?$', dest: '/api' },
+        { src: '^/(?:api|v1|mcp)(?:/.*)?$', dest: '/api' },
         { handle: 'filesystem' },
         { src: '^/(.*)$', dest: '/index.html' },
       ],

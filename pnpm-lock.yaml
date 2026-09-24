@@ -118,6 +118,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@serverless-analytics/mcp':
+        specifier: workspace:*
+        version: link:../mcp
       hono:
         specifier: ^4.13.9
         version: 4.13.9

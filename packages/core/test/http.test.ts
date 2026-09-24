@@ -27,9 +27,9 @@ function setup(extraEnv: Record<string, unknown> = {}) {
   const app = createApp({ services: () => createServices(platform()), env: () => env })
 
   let cookie = ''
-  const request = async (path: string, init: RequestInit & { json?: unknown; base?: string } = {}) => {
+  const request = async (path: string, init: RequestInit & { json?: unknown; base?: string; anonymous?: boolean } = {}) => {
     const headers = new Headers(init.headers)
-    if (cookie) headers.set('cookie', cookie)
+    if (cookie && !init.anonymous) headers.set('cookie', cookie)
     if (init.json !== undefined) {
       headers.set('content-type', 'application/json')
       init.body = JSON.stringify(init.json)
@@ -148,6 +148,42 @@ describe('HTTP API', () => {
       status: 'denied',
     })
     expect(await t.request('/api/cli/auth/poll', { method: 'POST', json: { deviceCode: 'nope' } }).then((r) => r.json())).toEqual({ status: 'expired' })
+  })
+
+  it('serves MCP over HTTP with access tokens', async () => {
+    await bootstrap(t)
+    const { secret } = (await (await t.request('/api/tokens', { method: 'POST', json: { name: 'mcp' } })).json()) as { secret: string }
+    const mcp = (json: unknown, token: string | null = secret) =>
+      t.request('/mcp', { method: 'POST', json, anonymous: true, headers: token ? { authorization: `Bearer ${token}`, accept: 'application/json, text/event-stream' } : {} })
+
+    const unauth = await mcp({ jsonrpc: '2.0', id: 1, method: 'ping' }, null)
+    expect(unauth.status).toBe(401)
+    expect(unauth.headers.get('www-authenticate')).toContain('Bearer')
+    expect((await t.request('/mcp', { anonymous: true })).status).toBe(405)
+    expect((await mcp({ jsonrpc: '2.0', method: 'notifications/initialized' })).status).toBe(202)
+
+    const init = await (await mcp({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } } })).json()
+    expect(init).toMatchObject({ result: { serverInfo: { name: 'serverless-analytics' }, protocolVersion: '2025-06-18' } })
+
+    const tool = async (name: string, args: Record<string, unknown>) => {
+      const res = (await (await mcp({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name, arguments: args } })).json()) as {
+        result: { content: { text: string }[]; isError?: boolean }
+      }
+      return { ...JSON.parse(res.result.content[0]!.text), isError: res.result.isError }
+    }
+    const created = await tool('create_app', { name: 'Via MCP' })
+    expect(created.app).toMatchObject({ name: 'Via MCP' })
+    expect((await tool('define_event', { app: 'via mcp', name: 'signup', properties: [{ name: 'method', type: 'string', required: true }] })).definition.name).toBe('signup')
+    expect(await tool('send_test_event', { app: 'Via MCP', event: 'signup', properties: { method: 'email' } })).toMatchObject({ accepted: 1 })
+    expect((await tool('query_top', { app: 'Via MCP', by: 'name' })).rows).toEqual([{ value: 'signup', events: 1, users: 1 }])
+    expect((await tool('get_integration_snippet', { app: 'Via MCP', lang: 'js' })).code).toContain('https://analytics.test')
+    const bad = await tool('query_top', { app: 'Via MCP', by: 'bogus' })
+    expect(bad).toMatchObject({ isError: true, error: { code: 'invalid_group_by', status: 400 } })
+
+    // A revoked token stops working for MCP too.
+    const { tokens } = (await (await t.request('/api/tokens')).json()) as { tokens: { id: string; name: string }[] }
+    await t.request(`/api/tokens/${tokens.find((x) => x.name === 'mcp')!.id}`, { method: 'DELETE' })
+    expect((await mcp({ jsonrpc: '2.0', id: 3, method: 'ping' })).status).toBe(401)
   })
 
   it('rejects cross-origin mutations', async () => {

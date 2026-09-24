@@ -6,6 +6,7 @@ import { ConfigError, resolveConfig } from './config.js'
 import type { AppEnv } from './http.js'
 import { adminRoutes } from './routes/admin.js'
 import { cliRoutes } from './routes/cli.js'
+import { mountMcp } from './routes/mcp.js'
 import { ingestRoutes } from './routes/ingest.js'
 import { internalRoutes } from './routes/internal.js'
 import type { Services } from './services.js'
@@ -65,10 +66,12 @@ export function createApp(options: CreateAppOptions) {
 
   app.use('/v1/*', withServices)
   app.use('/api/*', withServices)
+  app.use('/mcp', withServices)
   app.route('/v1', ingestRoutes)
   app.route('/api', internalRoutes)
   app.route('/api', cliRoutes)
   app.route('/api', adminRoutes)
+  mountMcp(app)
 
   return app
 }
