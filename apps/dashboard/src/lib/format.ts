@@ -52,6 +52,8 @@ export const PREVIOUS_LABELS: Record<string, string> = {
 export const DIMENSION_LABELS: Record<string, string> = {
   name: 'Event',
   platform: 'Platform',
+  channel: 'Channel',
+  region: 'Region',
   os: 'OS',
   os_version: 'OS version',
   browser: 'Browser',
