@@ -126,9 +126,10 @@ class MainView extends WatchUi.View {
 
     var color = _ready ? Graphics.COLOR_YELLOW : Graphics.COLOR_LT_GRAY;
     var status = _status;
-    if (_msg != null) {
+    var msg = _msg;
+    if (msg != null) {
       color = Graphics.COLOR_LT_GRAY;
-      status = _msg;
+      status = msg;
     }
     dc.setColor(color, Graphics.COLOR_TRANSPARENT);
     dc.drawText(
