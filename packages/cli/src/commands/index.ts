@@ -1,4 +1,5 @@
 import type { Context } from '../context.js'
+import { appsCreate, appsDelete, appsGet, appsList, appsRotateKey, appsUpdate, eventsDefine, eventsDelete, eventsList, eventsUpdate, samplingGet, samplingSet } from './apps.js'
 import { login, logout, migrate, tokens, whoami } from './auth.js'
 
 export type Command = (ctx: Context) => Promise<void>
@@ -10,6 +11,19 @@ export const COMMANDS: Record<string, Command> = {
   whoami,
   migrate,
   tokens,
+  apps: appsList,
+  'apps list': appsList,
+  'apps create': appsCreate,
+  'apps get': appsGet,
+  'apps update': appsUpdate,
+  'apps rotate-key': appsRotateKey,
+  'apps delete': appsDelete,
+  'sampling get': samplingGet,
+  'sampling set': samplingSet,
+  'events list': eventsList,
+  'events define': eventsDefine,
+  'events update': eventsUpdate,
+  'events delete': eventsDelete,
 }
 
 const GLOBAL = `Global options:
@@ -31,6 +45,19 @@ Auth
   whoami                                            Endpoint, token and deployment status
   tokens [list|create <name>|revoke <id> --yes]     Manage access tokens
   migrate                                           Apply pending database migrations
+
+Configure (<app> is an app id or name)
+  apps list | get <app> [--reveal]                  List apps / show one (with write key)
+  apps create <name> [--strict] [--retention-days N]
+  apps update <app> [--name N] [--schema-mode permissive|strict] [--retention-days N]
+  apps rotate-key <app> --yes | apps delete <app> --yes
+  events list <app>                                 Definitions and undefined events seen
+  events define <app> <event> [--description D] [--prop name:type[:required][:desc]]…
+  events update <app> <event> [--description D] [--status active|archived] [--prop …]
+  events delete <app> <event> --yes
+  sampling get <app>
+  sampling set <app> [--mode full|sampled] [--strategy user|event] [--rate 0.1|10%]
+                     [--override event=rate]… [--remove-override event] [--clear-overrides]
 
 ${GLOBAL}
 

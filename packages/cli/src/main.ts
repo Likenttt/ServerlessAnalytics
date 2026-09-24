@@ -5,7 +5,7 @@ import { COMMANDS, HELP } from './commands/index.js'
 import { Context, NotLoggedIn, type Runtime } from './context.js'
 import { Output } from './output.js'
 
-export const BOOLEAN_FLAGS = new Set(['json', 'human', 'help', 'version', 'yes', 'strict', 'resume', 'clear-overrides', 'archived', 'reveal'])
+export const BOOLEAN_FLAGS = new Set(['json', 'human', 'help', 'version', 'yes', 'strict', 'resume', 'clear-overrides', 'clear-props', 'archived', 'reveal'])
 
 export const defaultRuntime: Runtime = {
   env: process.env,
