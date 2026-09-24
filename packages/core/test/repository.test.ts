@@ -152,6 +152,64 @@ describe.each(DIALECTS)('Repository on %s', (_, open) => {
     expect(samples).toHaveLength(3)
   })
 
+  it('computes property metrics: sum, avg and events per user', async () => {
+    await repo.insertEvents([
+      row(appId, { name: 'purchase', distinct_id: 'a', properties: { amount: 10, plan: 'pro' } }),
+      row(appId, { name: 'purchase', distinct_id: 'a', properties: { amount: 20.5, plan: 'pro' } }),
+      row(appId, { name: 'purchase', distinct_id: 'b', properties: { amount: 'n/a', plan: 'free' } }),
+    ])
+    const range = trailingRange(NOW, 24, 'hour', 0)
+    const q = (metric: string, groupBy: 'prop:plan' | null = null) =>
+      repo.insights(appId, { range, event: 'purchase', metric: metric as never, groupBy, filters: [], limit: 10 })
+    expect((await q('sum:amount')).series[0]!.total).toBeCloseTo(30.5)
+    expect((await q('avg:amount')).series[0]!.total).toBeCloseTo(15.25)
+    expect((await q('per_user')).series[0]!.total).toBeCloseTo(1.5)
+    const byPlan = await q('sum:amount', 'prop:plan')
+    expect(byPlan.series[0]).toMatchObject({ key: 'pro' })
+    expect(byPlan.series[0]!.total).toBeCloseTo(30.5)
+  })
+
+  it('counts DAU / WAU / MAU', async () => {
+    await repo.insertEvents([
+      row(appId, { distinct_id: 'a', ts: NOW - HOUR }),
+      row(appId, { distinct_id: 'b', ts: NOW - 3 * DAY }),
+      row(appId, { distinct_id: 'c', ts: NOW - 20 * DAY }),
+      row(appId, { distinct_id: 'd', ts: NOW - 40 * DAY }),
+    ])
+    expect(await repo.activeUsers(appId, NOW)).toEqual({ dau: 1, wau: 2, mau: 3 })
+  })
+
+  it('computes ordered funnels with a conversion window and breakdown', async () => {
+    const at = (h: number) => NOW - 48 * HOUR + h * HOUR
+    await repo.insertEvents([
+      // a: view → signup → purchase (converts fully)
+      row(appId, { distinct_id: 'a', name: 'view', ts: at(0), platform: 'ios' }),
+      row(appId, { distinct_id: 'a', name: 'signup', ts: at(1), platform: 'ios' }),
+      row(appId, { distinct_id: 'a', name: 'purchase', ts: at(3), platform: 'ios' }),
+      // b: signup before view → stops at step 1
+      row(appId, { distinct_id: 'b', name: 'signup', ts: at(0), platform: 'android' }),
+      row(appId, { distinct_id: 'b', name: 'view', ts: at(2), platform: 'android' }),
+      // c: view → signup, purchase outside a 10h window
+      row(appId, { distinct_id: 'c', name: 'view', ts: at(0), platform: 'ios' }),
+      row(appId, { distinct_id: 'c', name: 'signup', ts: at(2), platform: 'ios' }),
+      row(appId, { distinct_id: 'c', name: 'purchase', ts: at(20), platform: 'ios' }),
+    ])
+    const res = await repo.funnel(appId, {
+      range: trailingRange(NOW, 7, 'day', 0),
+      steps: ['view', 'signup', 'purchase'],
+      windowMs: 10 * HOUR,
+      filters: [],
+      groupBy: 'platform',
+    })
+    expect(res.steps.map((s) => s.users)).toEqual([3, 2, 1])
+    expect(res.steps[1]!.stepConversion).toBeCloseTo(2 / 3)
+    expect(res.steps[2]!.conversion).toBeCloseTo(1 / 3)
+    expect(res.steps[1]!.medianTimeMs).toBe(2 * HOUR)
+    expect(res.groups.find((g) => g.key === 'ios')!.steps.map((s) => s.users)).toEqual([2, 2, 1])
+    expect(res.groups.find((g) => g.key === 'android')!.steps.map((s) => s.users)).toEqual([1, 0, 0])
+    expect(res.truncated).toBe(false)
+  })
+
   it('lists apps with a 7-day sparkline', async () => {
     await repo.insertEvents([row(appId, { ts: Date.now() - HOUR }), row(appId, { ts: Date.now() - 3 * DAY })])
     const [app] = await repo.listAppsWithStats(Date.now(), 0)

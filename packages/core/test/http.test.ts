@@ -242,6 +242,29 @@ describe('HTTP API', () => {
     expect((detail as { points: number[] }).points.reduce((a, b) => a + b, 0)).toBe(2)
   })
 
+  it('serves funnels, active users and property metrics', async () => {
+    const app = await bootstrap(t)
+    await t.request('/v1/batch', {
+      method: 'POST',
+      headers: { 'x-write-key': app.writeKey },
+      json: {
+        events: [
+          { name: 'view', anonymousId: 'a', timestamp: Date.now() - 60_000 },
+          { name: 'buy', anonymousId: 'a', properties: { amount: 9 } },
+          { name: 'view', anonymousId: 'b' },
+        ],
+      },
+    })
+    const funnel = await (await t.request(`/api/apps/${app.id}/funnel?step=view&step=buy`)).json()
+    expect(funnel).toMatchObject({ steps: [{ name: 'view', users: 2 }, { name: 'buy', users: 1, conversion: 0.5 }] })
+    expect((await t.request(`/api/apps/${app.id}/funnel?step=view`)).status).toBe(400)
+    expect(await (await t.request(`/api/apps/${app.id}/active-users`)).json()).toEqual({ dau: 2, wau: 2, mau: 2 })
+    const sum = (await (await t.request(`/api/apps/${app.id}/insights?event=buy&metric=sum:amount`)).json()) as InsightsResponse
+    expect(sum.series[0]!.total).toBe(9)
+    const bad = (await (await t.request(`/api/apps/${app.id}/insights?metric=sum:bad key`)).json()) as InsightsResponse
+    expect(bad.metric).toBe('events')
+  })
+
   it('rotating the key invalidates the old one', async () => {
     const app = await bootstrap(t)
     const send = (key: string) =>

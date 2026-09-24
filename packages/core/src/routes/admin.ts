@@ -6,6 +6,9 @@ import { migrate, migrationStatus } from '../db/migrations.js'
 import { apiError, clampInt, parseFilters, parseRange, publicOrigin, readJson, type AppEnv } from '../http.js'
 import { invalidateApp, runRetention } from '../services.js'
 import type {
+  ActiveUsers,
+  FunnelResponse,
+  Metric,
   App,
   AppWithStats,
   DefinitionsResponse,
@@ -193,7 +196,7 @@ adminRoutes.get('/apps/:id/insights', async (c) => {
   const res: InsightsResponse = await c.get('services').repo.insights(app.id, {
     range: parseRange(c),
     event,
-    metric: c.req.query('metric') === 'users' ? 'users' : 'events',
+    metric: parseMetric(c.req.query('metric')),
     groupBy,
     filters: parseFilters(c),
     limit: clampInt(c.req.query('limit'), 8, 1, 20),
@@ -221,6 +224,30 @@ adminRoutes.get('/apps/:id/properties', async (c) => {
   const [seen, definitions] = await Promise.all([services.repo.propertyKeys(app.id, event), services.repo.listDefinitions(app.id)])
   const defined = definitions.filter((d) => !event || d.name === event).flatMap((d) => d.properties.map((p) => p.name))
   return c.json({ keys: [...new Set([...defined, ...seen])] })
+})
+
+adminRoutes.get('/apps/:id/active-users', async (c) => {
+  const app = await loadApp(c)
+  const res: ActiveUsers = await c.get('services').repo.activeUsers(app.id, Date.now(), parseFilters(c))
+  return c.json(res)
+})
+
+adminRoutes.get('/apps/:id/funnel', async (c) => {
+  const app = await loadApp(c)
+  const steps = (c.req.queries('step') ?? []).filter((s) => EVENT_NAME.test(s))
+  if (steps.length < 2 || steps.length > 8) throw apiError(400, 'invalid_steps', 'A funnel needs 2 to 8 steps (step=a&step=b…)')
+  const groupByRaw = c.req.query('groupBy')
+  const groupBy = parseGroupBy(groupByRaw)
+  if (groupByRaw && !groupBy) throw apiError(400, 'invalid_group_by', 'groupBy must be a dimension or prop:<key>')
+  const windowHours = clampInt(c.req.query('window'), 24 * 7, 1, 24 * 90)
+  const res: FunnelResponse = await c.get('services').repo.funnel(app.id, {
+    range: parseRange(c),
+    steps,
+    windowMs: windowHours * 3_600_000,
+    filters: parseFilters(c),
+    groupBy,
+  })
+  return c.json(res)
 })
 
 // Errors ----------------------------------------------------------------------
@@ -256,6 +283,13 @@ adminRoutes.get('/apps/:id/errors/:fingerprint', async (c) => {
   }
   return c.json(res)
 })
+
+function parseMetric(value: string | undefined): Metric {
+  if (value === 'users' || value === 'per_user') return value
+  const m = value?.match(/^(sum|avg):(.+)$/)
+  if (m && PROPERTY_KEY.test(m[2]!)) return value as Metric
+  return 'events'
+}
 
 // Event definitions -----------------------------------------------------------
 

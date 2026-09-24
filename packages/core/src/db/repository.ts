@@ -3,8 +3,11 @@ import type {
   App,
   AppWithStats,
   DefinitionStatus,
+  ActiveUsers,
   ErrorsResponse,
   EventDefinition,
+  FunnelResponse,
+  FunnelStep,
   GroupBy,
   InsightsResponse,
   Metric,
@@ -278,7 +281,98 @@ export class Repository {
   }
 
   private metricExpr(metric: Metric): RawBuilder<number> {
-    return metric === 'users' ? sql<number>`COUNT(DISTINCT distinct_id)` : sql<number>`COUNT(*)`
+    if (metric === 'users') return sql<number>`COUNT(DISTINCT distinct_id)`
+    if (metric === 'per_user') return sql<number>`(COUNT(*) * 1.0 / NULLIF(COUNT(DISTINCT distinct_id), 0))`
+    if (metric.startsWith('sum:')) return sql<number>`COALESCE(SUM(${this.dialect.propNumber(metric.slice(4))}), 0)`
+    if (metric.startsWith('avg:')) return sql<number>`AVG(${this.dialect.propNumber(metric.slice(4))})`
+    return sql<number>`COUNT(*)`
+  }
+
+  /** Unique users in the trailing 24h / 7d / 30d windows ending at `now`. */
+  async activeUsers(appId: string, now: number, filters: Filter[] = []): Promise<ActiveUsers> {
+    const count = (ms: number) =>
+      this.scoped(appId, now - ms, now + 1, null, filters)
+        .select(sql<number>`COUNT(DISTINCT distinct_id)`.as('n'))
+        .executeTakeFirst()
+        .then((r) => Number(r?.n ?? 0))
+    const [dau, wau, mau] = await Promise.all([count(DAY), count(7 * DAY), count(30 * DAY)])
+    return { dau, wau, mau }
+  }
+
+  /**
+   * Ordered funnel: a user converts on step i if they did it at or after
+   * reaching step i-1, within `windowMs` of entering. Per user and step we
+   * only read the first and last occurrence, so a repeated step counts as
+   * reached "no later than" the previous step when its first occurrence is
+   * earlier — a standard approximation that keeps the scan to one query.
+   */
+  async funnel(
+    appId: string,
+    q: { range: TimeRange; steps: string[]; windowMs: number; filters: Filter[]; groupBy: GroupBy | null; maxRows?: number },
+  ): Promise<FunnelResponse> {
+    const maxRows = q.maxRows ?? 250_000
+    const group = q.groupBy ? this.groupExpr(q.groupBy) : sql<string | null>`CAST(NULL AS TEXT)`
+    const rows = await this.scoped(appId, q.range.from, q.range.to, null, q.filters)
+      .where('name', 'in', q.steps)
+      .select([
+        'distinct_id',
+        'name',
+        sql<number>`MIN(ts)`.as('first'),
+        sql<number>`MAX(ts)`.as('last'),
+        sql<string | null>`MIN(${group})`.as('g'),
+      ])
+      .groupBy([sql`1`, sql`2`])
+      .limit(maxRows + 1)
+      .execute()
+    const truncated = rows.length > maxRows
+
+    const byUser = new Map<string, Map<string, { first: number; last: number; g: string | null }>>()
+    for (const r of rows.slice(0, maxRows)) {
+      let steps = byUser.get(r.distinct_id)
+      if (!steps) byUser.set(r.distinct_id, (steps = new Map()))
+      steps.set(r.name, { first: Number(r.first), last: Number(r.last), g: r.g == null ? null : String(r.g) })
+    }
+
+    type Path = { key: string | null; times: number[] }
+    const paths: Path[] = []
+    for (const steps of byUser.values()) {
+      const entry = steps.get(q.steps[0]!)
+      if (!entry) continue
+      const times = [entry.first]
+      for (const name of q.steps.slice(1)) {
+        const prev = times[times.length - 1]!
+        const s = steps.get(name)
+        if (!s || s.last < prev) break
+        const at = s.first >= prev ? s.first : prev
+        if (at - entry.first > q.windowMs) break
+        times.push(at)
+      }
+      paths.push({ key: entry.g, times })
+    }
+
+    const summarize = (subset: Path[]): FunnelStep[] =>
+      q.steps.map((name, i) => {
+        const reached = subset.filter((p) => p.times.length > i)
+        const prevCount = i === 0 ? reached.length : subset.filter((p) => p.times.length > i - 1).length
+        const deltas = i === 0 ? [] : reached.map((p) => p.times[i]! - p.times[i - 1]!).sort((a, b) => a - b)
+        return {
+          name,
+          users: reached.length,
+          conversion: subset.length ? reached.length / subset.length : 0,
+          stepConversion: prevCount ? reached.length / prevCount : 0,
+          medianTimeMs: deltas.length ? deltas[Math.floor(deltas.length / 2)]! : null,
+        }
+      })
+
+    const groups: FunnelResponse['groups'] = []
+    if (q.groupBy) {
+      const counts = new Map<string | null, number>()
+      for (const p of paths) counts.set(p.key, (counts.get(p.key) ?? 0) + 1)
+      const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
+      for (const [key] of top) groups.push({ key, steps: summarize(paths.filter((p) => p.key === key)) })
+    }
+
+    return { range: q.range, windowMs: q.windowMs, steps: summarize(paths), groups, truncated }
   }
 
   private scoped(appId: string, from: number, to: number, event: string | null, filters: Filter[]): EventsQuery {
