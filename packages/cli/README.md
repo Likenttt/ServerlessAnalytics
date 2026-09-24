@@ -82,6 +82,14 @@ sa query events <app> --name purchase --limit 20
 - 进度提示总是写到 stderr，stdout 只包含结果。
 - 出错时，stderr 的最后一行是 `{"error":{"code","message","status"}}`。
 
+## MCP
+
+```sh
+sa mcp        # 本地 stdio MCP server，复用当前登录状态
+```
+
+支持远程 MCP 的客户端，可以直接连接部署的 `/mcp` 端点。配置方法见 [docs/MCP.md](../../docs/MCP.md)。
+
 ## 配合 agent 使用
 
 把 [`SKILL.md`](./SKILL.md) 复制到 agent 的 skills 目录，例如 Claude Code 的 `~/.claude/skills/serverless-analytics/SKILL.md`。之后就可以直接对 agent 说「帮我把这个 iOS 项目接入埋点」「定义 purchase 事件」「看看最近 30 天各渠道的活跃用户」，agent 会调用 `sa` 完成。

@@ -52,7 +52,7 @@ analytics.reset()                                   // 退出登录
 
 ## 2. 用 CLI 或 Agent 管理
 
-推荐使用 [`serverless-analytics-cli`](../packages/cli/README.md)：执行 `sa login` 后在网页中授权，之后接入（`apps create`、`snippet`）、配置（`events define`、`sampling set`）、查询（`query …`）都可以在命令行完成。Agent 使用 [`SKILL.md`](../packages/cli/SKILL.md) 即可。
+Agent 可以直接连接部署的 MCP 端点 `/mcp`，以工具的形式调用（见 [MCP.md](./MCP.md)）；也可以使用 [`serverless-analytics-cli`](../packages/cli/README.md)：执行 `sa login` 后在网页中授权，之后接入（`apps create`、`snippet`）、配置（`events define`、`sampling set`）、查询（`query …`）都可以在命令行完成。Agent 使用 [`SKILL.md`](../packages/cli/SKILL.md) 即可。
 
 ## 3. 读取数据（HTTP API）
 

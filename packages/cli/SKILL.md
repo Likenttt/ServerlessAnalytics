@@ -5,6 +5,8 @@ description: Set up, configure and query a self-hosted Serverless Analytics depl
 
 # Serverless Analytics via `sa`
 
+If the `serverless-analytics` MCP tools are available (list_apps, query_trend, …), prefer them. They cover the same operations without the shell. Otherwise use the CLI as below.
+
 `sa` talks to the user's own deployment. Run it through the shell. Its stdout is JSON when not attached to a terminal, so parse stdout; progress messages go to stderr. Exit codes: 0 ok, 1 API/network error (see the last stderr line: `{"error":{code,message,status}}`), 2 usage error, 3 not logged in.
 
 If `sa` isn't installed: `npm install -g serverless-analytics-cli` (or `npx serverless-analytics-cli …`).
