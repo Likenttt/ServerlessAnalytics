@@ -91,12 +91,12 @@ class GameState {
       "f" => fullDay,
       "b" => best,
       "to" => total,
-      "hf" => hasFloors
+      "hf" => hasFloors,
     });
     Application.Storage.setValue("glance", [
       Ui.title(self),
       progressPct(),
-      Lang.format(Ui.s(Rez.Strings.GlanceDetail), [questsDone(), sum()])
+      Lang.format(Ui.s(Rez.Strings.GlanceDetail), [questsDone(), sum()]),
     ]);
   }
 
@@ -348,7 +348,11 @@ class GameState {
     total[2] += more(t[2], c[2]) + 2 * more(t[3], c[3]);
   }
 
-  hidden function unitsGained(t as Number, c as Number, per as Number) as Number {
+  hidden function unitsGained(
+    t as Number,
+    c as Number,
+    per as Number
+  ) as Number {
     return t >= c ? t / per - c / per : 0;
   }
 
@@ -357,7 +361,12 @@ class GameState {
   }
 
   // Rewards newly completed quests of day k; returns the updated bit mask.
-  hidden function checkQuests(k as Number, t as Array<Number>, mask as Number, isToday as Boolean) as Number {
+  hidden function checkQuests(
+    k as Number,
+    t as Array<Number>,
+    mask as Number,
+    isToday as Boolean
+  ) as Number {
     var all = true;
     for (var q = 0; q < 3; q++) {
       if (valueOf(q, t, isToday) >= Rules.questTarget(q, realm, hasFloors)) {
@@ -383,7 +392,11 @@ class GameState {
   }
 
   // Leaps only exist for today; past days can't complete the leap quest.
-  hidden function valueOf(q as Number, t as Array<Number>, isToday as Boolean) as Number {
+  hidden function valueOf(
+    q as Number,
+    t as Array<Number>,
+    isToday as Boolean
+  ) as Number {
     if (q == 0) {
       return t[0];
     }

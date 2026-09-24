@@ -18,7 +18,7 @@ module Ui {
       Rez.Strings.Realm5,
       Rez.Strings.Realm6,
       Rez.Strings.Realm7,
-      Rez.Strings.Realm8
+      Rez.Strings.Realm8,
     ];
     return s(ids[r]);
   }
@@ -28,7 +28,7 @@ module Ui {
       Rez.Strings.Sect0,
       Rez.Strings.Sect1,
       Rez.Strings.Sect2,
-      Rez.Strings.Sect3
+      Rez.Strings.Sect3,
     ];
     return i < 0 ? s(Rez.Strings.SectNone) : s(ids[i]);
   }
@@ -38,7 +38,7 @@ module Ui {
       Rez.Strings.Attr0,
       Rez.Strings.Attr1,
       Rez.Strings.Attr2,
-      Rez.Strings.Attr3
+      Rez.Strings.Attr3,
     ];
     return s(ids[i]);
   }
@@ -67,7 +67,7 @@ module Ui {
     if (b == Rules.BLOCK_ATTR) {
       return Lang.format(s(Rez.Strings.NeedAttr), [
         attrName(g.weakest()),
-        (need * Rules.MIN_ATTR_PCT) / 100
+        (need * Rules.MIN_ATTR_PCT) / 100,
       ]);
     }
     if (b == Rules.BLOCK_STEPS) {
@@ -80,7 +80,7 @@ module Ui {
     }
     return Lang.format(s(Rez.Strings.NeedStreak), [
       Rules.PREREQ_STREAK,
-      g.currentStreak()
+      g.currentStreak(),
     ]);
   }
 

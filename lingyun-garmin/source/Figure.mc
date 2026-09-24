@@ -92,7 +92,7 @@ module Figure {
       arms = mood == 0 ? ARMS_SALUTE : ARMS_WINGS;
     } else if (realm >= 5) {
       legs = LEGS_CRANE;
-      arms = mood == 0 ? ARMS_HANG : (mood == 1 ? ARMS_SALUTE : ARMS_STRIKE);
+      arms = mood == 0 ? ARMS_HANG : mood == 1 ? ARMS_SALUTE : ARMS_STRIKE;
     } else {
       legs = mood == 2 ? LEGS_HORSE : LEGS_STAND;
       if (mood == 2) {
@@ -109,7 +109,15 @@ module Figure {
   }
 
   // Swirling qi: two arcs orbit the hero, a third counter-rotates from realm 6.
-  function aura(dc as Graphics.Dc, cx as Number, cy as Float, u as Float, color as Number, realm as Number, phase as Number) as Void {
+  function aura(
+    dc as Graphics.Dc,
+    cx as Number,
+    cy as Float,
+    u as Float,
+    color as Number,
+    realm as Number,
+    phase as Number
+  ) as Void {
     dc.setColor(color, Graphics.COLOR_TRANSPARENT);
     dc.setPenWidth(pen(0.18 * u));
     var a = (phase * 12) % 360;
@@ -126,7 +134,12 @@ module Figure {
   }
 
   // Treading on air: fading dashes under the feet.
-  function steps(dc as Graphics.Dc, cx as Number, base as Float, u as Float) as Void {
+  function steps(
+    dc as Graphics.Dc,
+    cx as Number,
+    base as Float,
+    u as Float
+  ) as Void {
     dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
     dc.setPenWidth(pen(0.15 * u));
     for (var i = 0; i < 3; i++) {
@@ -138,7 +151,13 @@ module Figure {
   }
 
   // A cloud to ride, with wind streaks drifting behind.
-  function cloud(dc as Graphics.Dc, cx as Number, base as Float, u as Float, phase as Number) as Void {
+  function cloud(
+    dc as Graphics.Dc,
+    cx as Number,
+    base as Float,
+    u as Float,
+    phase as Number
+  ) as Void {
     dc.setColor(0x55aaff, Graphics.COLOR_TRANSPARENT);
     dc.setPenWidth(pen(0.15 * u));
     var drift = ((phase % 12) / 12.0) * 2.0 * u;
@@ -156,16 +175,49 @@ module Figure {
     puff(dc, cx + 0.95 * u, base + 1.1 * u, 0.9 * u);
   }
 
-  function drawLegs(dc as Graphics.Dc, cx as Number, base as Float, u as Float, legs as Number) as Void {
+  function drawLegs(
+    dc as Graphics.Dc,
+    cx as Number,
+    base as Float,
+    u as Float,
+    legs as Number
+  ) as Void {
     dc.setColor(TROUSERS, Graphics.COLOR_TRANSPARENT);
     dc.setPenWidth(pen(0.55 * u));
     var hip = base - 3.4 * u;
     if (legs == LEGS_HORSE) {
-      limb(dc, cx - 0.6 * u, hip, cx - 2.0 * u, base - 1.9 * u, cx - 2.2 * u, base, 0.27 * u);
-      limb(dc, cx + 0.6 * u, hip, cx + 2.0 * u, base - 1.9 * u, cx + 2.2 * u, base, 0.27 * u);
+      limb(
+        dc,
+        cx - 0.6 * u,
+        hip,
+        cx - 2.0 * u,
+        base - 1.9 * u,
+        cx - 2.2 * u,
+        base,
+        0.27 * u
+      );
+      limb(
+        dc,
+        cx + 0.6 * u,
+        hip,
+        cx + 2.0 * u,
+        base - 1.9 * u,
+        cx + 2.2 * u,
+        base,
+        0.27 * u
+      );
     } else if (legs == LEGS_CRANE) {
       line(dc, cx - 0.5 * u, hip, cx - 0.5 * u, base);
-      limb(dc, cx + 0.5 * u, hip, cx + 1.6 * u, base - 2.3 * u, cx + 0.8 * u, base - 1.1 * u, 0.27 * u);
+      limb(
+        dc,
+        cx + 0.5 * u,
+        hip,
+        cx + 1.6 * u,
+        base - 2.3 * u,
+        cx + 0.8 * u,
+        base - 1.1 * u,
+        0.27 * u
+      );
     } else {
       line(dc, cx - 0.6 * u, hip, cx - 0.9 * u, base);
       line(dc, cx + 0.6 * u, hip, cx + 0.9 * u, base);
@@ -174,21 +226,30 @@ module Figure {
   }
 
   // Robe, sash, and from realm 3 streamers that flutter behind.
-  function drawBody(dc as Graphics.Dc, cx as Number, base as Float, u as Float, robe as Number, sect as Number, realm as Number, t as Float) as Void {
+  function drawBody(
+    dc as Graphics.Dc,
+    cx as Number,
+    base as Float,
+    u as Float,
+    robe as Number,
+    sect as Number,
+    realm as Number,
+    t as Float
+  ) as Void {
     var wave = Math.sin(t * 1.7) * 0.4 * u;
     dc.setColor(robe, Graphics.COLOR_TRANSPARENT);
     if (realm >= 6) {
       dc.fillPolygon([
         [n(cx - 1.9 * u), n(base - 3.0 * u)],
         [n(cx - 1.3 * u), n(base - 4.8 * u)],
-        [n(cx - 3.8 * u), n(base - 2.4 * u + wave)]
+        [n(cx - 3.8 * u), n(base - 2.4 * u + wave)],
       ]);
     }
     dc.fillPolygon([
       [n(cx - 1.2 * u), n(base - 7.0 * u)],
       [n(cx + 1.2 * u), n(base - 7.0 * u)],
       [n(cx + 1.9 * u), n(base - 3.0 * u)],
-      [n(cx - 1.9 * u), n(base - 3.0 * u)]
+      [n(cx - 1.9 * u), n(base - 3.0 * u)],
     ]);
     // Crossed collar.
     dc.setColor(HAIR, Graphics.COLOR_TRANSPARENT);
@@ -198,28 +259,80 @@ module Figure {
 
     var sash = sect < 0 ? HAIR : SASH;
     dc.setColor(sash, Graphics.COLOR_TRANSPARENT);
-    dc.fillRectangle(n(cx - 1.5 * u), n(base - 5.1 * u), n(3.0 * u), pen(0.5 * u));
+    dc.fillRectangle(
+      n(cx - 1.5 * u),
+      n(base - 5.1 * u),
+      n(3.0 * u),
+      pen(0.5 * u)
+    );
     if (realm >= 3) {
       dc.setPenWidth(pen(0.25 * u));
-      line(dc, cx - 1.4 * u, base - 4.9 * u, cx - 2.9 * u, base - 4.0 * u + wave);
-      line(dc, cx - 1.4 * u, base - 4.8 * u, cx - 2.5 * u, base - 3.4 * u + wave * 0.6);
+      line(
+        dc,
+        cx - 1.4 * u,
+        base - 4.9 * u,
+        cx - 2.9 * u,
+        base - 4.0 * u + wave
+      );
+      line(
+        dc,
+        cx - 1.4 * u,
+        base - 4.8 * u,
+        cx - 2.5 * u,
+        base - 3.4 * u + wave * 0.6
+      );
     }
     dc.setPenWidth(1);
   }
 
-  function drawArms(dc as Graphics.Dc, cx as Number, base as Float, u as Float, robe as Number, arms as Number, t as Float) as Void {
+  function drawArms(
+    dc as Graphics.Dc,
+    cx as Number,
+    base as Float,
+    u as Float,
+    robe as Number,
+    arms as Number,
+    t as Float
+  ) as Void {
     var sy = base - 6.7 * u;
     var lx = cx - 1.05 * u;
     var rx = cx + 1.05 * u;
     dc.setColor(robe, Graphics.COLOR_TRANSPARENT);
     dc.setPenWidth(pen(0.55 * u));
     if (arms == ARMS_SALUTE) {
-      limb(dc, lx, sy, cx - 1.8 * u, base - 5.6 * u, cx - 0.1 * u, base - 6.1 * u, 0.27 * u);
-      limb(dc, rx, sy, cx + 1.8 * u, base - 5.6 * u, cx + 0.1 * u, base - 6.1 * u, 0.27 * u);
+      limb(
+        dc,
+        lx,
+        sy,
+        cx - 1.8 * u,
+        base - 5.6 * u,
+        cx - 0.1 * u,
+        base - 6.1 * u,
+        0.27 * u
+      );
+      limb(
+        dc,
+        rx,
+        sy,
+        cx + 1.8 * u,
+        base - 5.6 * u,
+        cx + 0.1 * u,
+        base - 6.1 * u,
+        0.27 * u
+      );
       hand(dc, cx, base - 6.1 * u, 0.42 * u);
     } else if (arms == ARMS_STRIKE) {
       line(dc, rx, sy, cx + 3.7 * u, base - 6.6 * u);
-      limb(dc, lx, sy, cx - 2.0 * u, base - 5.2 * u, cx - 1.2 * u, base - 4.8 * u, 0.27 * u);
+      limb(
+        dc,
+        lx,
+        sy,
+        cx - 2.0 * u,
+        base - 5.2 * u,
+        cx - 1.2 * u,
+        base - 4.8 * u,
+        0.27 * u
+      );
       hand(dc, cx + 3.7 * u, base - 6.6 * u, 0.38 * u);
       hand(dc, cx - 1.2 * u, base - 4.8 * u, 0.33 * u);
     } else if (arms == ARMS_WINGS) {
@@ -238,7 +351,15 @@ module Figure {
   }
 
   // A drooping head when listless; a hair ribbon streams from realm 5.
-  function drawHead(dc as Graphics.Dc, cx as Number, base as Float, u as Float, realm as Number, droop as Boolean, t as Float) as Void {
+  function drawHead(
+    dc as Graphics.Dc,
+    cx as Number,
+    base as Float,
+    u as Float,
+    realm as Number,
+    droop as Boolean,
+    t as Float
+  ) as Void {
     var hx = droop ? cx + 0.25 * u : cx * 1.0;
     var hy = droop ? base - 7.6 * u : base - 7.95 * u;
     if (realm >= 5) {
@@ -266,9 +387,23 @@ module Figure {
   }
 
   // Counter-clockwise arc of span degrees starting at from (any angle).
-  function arc(dc as Graphics.Dc, cx as Number, cy as Float, r as Number, first as Number, span as Number) as Void {
+  function arc(
+    dc as Graphics.Dc,
+    cx as Number,
+    cy as Float,
+    r as Number,
+    first as Number,
+    span as Number
+  ) as Void {
     var a = first % 360;
-    dc.drawArc(cx, n(cy), r, Graphics.ARC_COUNTER_CLOCKWISE, a, (a + span) % 360);
+    dc.drawArc(
+      cx,
+      n(cy),
+      r,
+      Graphics.ARC_COUNTER_CLOCKWISE,
+      a,
+      (a + span) % 360
+    );
   }
 
   function line(dc as Graphics.Dc, x1, y1, x2, y2) as Void {

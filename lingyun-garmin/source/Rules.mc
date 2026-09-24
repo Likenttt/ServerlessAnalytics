@@ -43,7 +43,11 @@ module Rules {
 
   // Daily quest goals grow slowly with the realm: 0 steps, 1 floors (or
   // leaps on watches without a barometer), 2 intensity minutes.
-  function questTarget(q as Number, realm as Number, hasFloors as Boolean) as Number {
+  function questTarget(
+    q as Number,
+    realm as Number,
+    hasFloors as Boolean
+  ) as Number {
     if (q == 0) {
       return 5000 + 500 * realm;
     }

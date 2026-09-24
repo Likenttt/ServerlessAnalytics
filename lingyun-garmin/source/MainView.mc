@@ -43,7 +43,7 @@ class MainView extends WatchUi.View {
         ? Lang.format(Ui.s(Rez.Strings.XpMax), [g.sum()])
         : Lang.format(Ui.s(Rez.Strings.XpFmt), [
             g.sum(),
-            Rules.REALM_XP[g.realm + 1]
+            Rules.REALM_XP[g.realm + 1],
           ]);
     _status = Ui.blockerText(g);
     _ready = g.blocker() == Rules.BLOCK_NONE;
@@ -102,11 +102,25 @@ class MainView extends WatchUi.View {
     Figure.draw(dc, w / 2, ground, h / 30.0, g.realm, g.sect, g.mood(), _phase);
 
     dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-    dc.drawText(w / 2, (h * 15) / 100, Graphics.FONT_SMALL, _title, Ui.center());
+    dc.drawText(
+      w / 2,
+      (h * 15) / 100,
+      Graphics.FONT_SMALL,
+      _title,
+      Ui.center()
+    );
 
     var barW = (w * 56) / 100;
     var barH = h / 60 > 3 ? h / 60 : 3;
-    Ui.bar(dc, (w - barW) / 2, (h * 74) / 100, barW, barH, g.progressPct(), Graphics.COLOR_YELLOW);
+    Ui.bar(
+      dc,
+      (w - barW) / 2,
+      (h * 74) / 100,
+      barW,
+      barH,
+      g.progressPct(),
+      Graphics.COLOR_YELLOW
+    );
     dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
     dc.drawText(w / 2, (h * 79) / 100, Graphics.FONT_XTINY, _xp, Ui.center());
 
@@ -117,11 +131,22 @@ class MainView extends WatchUi.View {
       status = _msg;
     }
     dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-    dc.drawText(w / 2, (h * 87) / 100, Graphics.FONT_XTINY, status, Ui.center());
+    dc.drawText(
+      w / 2,
+      (h * 87) / 100,
+      Graphics.FONT_XTINY,
+      status,
+      Ui.center()
+    );
   }
 
   // Night mountains under a moon, or the sun by day.
-  hidden function drawScenery(dc as Graphics.Dc, w as Number, h as Number, ground as Number) as Void {
+  hidden function drawScenery(
+    dc as Graphics.Dc,
+    w as Number,
+    h as Number,
+    ground as Number
+  ) as Void {
     var hour = System.getClockTime().hour;
     var night = hour < 6 || hour >= 18;
     var mx = (w * 74) / 100;
@@ -137,12 +162,12 @@ class MainView extends WatchUi.View {
     dc.fillPolygon([
       [0, ground],
       [(w * 20) / 100, ground - (h * 17) / 100],
-      [(w * 42) / 100, ground]
+      [(w * 42) / 100, ground],
     ]);
     dc.fillPolygon([
       [(w * 28) / 100, ground],
       [(w * 62) / 100, ground - (h * 25) / 100],
-      [w, ground]
+      [w, ground],
     ]);
     dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
     dc.drawLine(0, ground, w, ground);
@@ -166,7 +191,7 @@ class MainView extends WatchUi.View {
       Graphics.COLOR_ORANGE,
       Graphics.COLOR_BLUE,
       Graphics.COLOR_YELLOW,
-      Graphics.COLOR_PURPLE
+      Graphics.COLOR_PURPLE,
     ];
     var x = (w * 18) / 100;
     var bw = (w * 64) / 100;
@@ -196,10 +221,16 @@ class MainView extends WatchUi.View {
       Rez.Strings.Hint0,
       Rez.Strings.Hint1,
       Rez.Strings.Hint2,
-      Rez.Strings.Hint3
+      Rez.Strings.Hint3,
     ];
     dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-    dc.drawText(w / 2, (h * 86) / 100, Graphics.FONT_XTINY, Ui.s(hints[g.weakest()]), Ui.center());
+    dc.drawText(
+      w / 2,
+      (h * 86) / 100,
+      Graphics.FONT_XTINY,
+      Ui.s(hints[g.weakest()]),
+      Ui.center()
+    );
   }
 
   hidden function drawQuests(dc as Graphics.Dc, g as GameState) as Void {
@@ -208,12 +239,18 @@ class MainView extends WatchUi.View {
     drawTitle(dc, Ui.s(Rez.Strings.PageQuest));
     var moods = [Rez.Strings.Mood0, Rez.Strings.Mood1, Rez.Strings.Mood2];
     dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-    dc.drawText(w / 2, (h * 23) / 100, Graphics.FONT_XTINY, Ui.s(moods[g.mood()]), Ui.center());
+    dc.drawText(
+      w / 2,
+      (h * 23) / 100,
+      Graphics.FONT_XTINY,
+      Ui.s(moods[g.mood()]),
+      Ui.center()
+    );
 
     var names = [
       Rez.Strings.Quest0,
       g.hasFloors ? Rez.Strings.Quest1 : Rez.Strings.Quest1Alt,
-      Rez.Strings.Quest2
+      Rez.Strings.Quest2,
     ];
     var x = (w * 18) / 100;
     var bw = (w * 64) / 100;
@@ -225,17 +262,43 @@ class MainView extends WatchUi.View {
       var value = g.questValue(q);
       var target = Rules.questTarget(q, g.realm, g.hasFloors);
       var done = (g.quest & (1 << q)) != 0;
-      dc.setColor(done ? Graphics.COLOR_GREEN : Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+      dc.setColor(
+        done ? Graphics.COLOR_GREEN : Graphics.COLOR_WHITE,
+        Graphics.COLOR_TRANSPARENT
+      );
       dc.drawText(x, y, Graphics.FONT_XTINY, Ui.s(names[q]), left);
-      dc.drawText(x + bw, y, Graphics.FONT_XTINY, value.toString() + "/" + target, right);
-      Ui.bar(dc, x, y + (h * 5) / 100, bw, bh, (value * 100) / target, done ? Graphics.COLOR_GREEN : Graphics.COLOR_BLUE);
+      dc.drawText(
+        x + bw,
+        y,
+        Graphics.FONT_XTINY,
+        value.toString() + "/" + target,
+        right
+      );
+      Ui.bar(
+        dc,
+        x,
+        y + (h * 5) / 100,
+        bw,
+        bh,
+        (value * 100) / target,
+        done ? Graphics.COLOR_GREEN : Graphics.COLOR_BLUE
+      );
     }
     var allDone = (g.quest & 8) != 0;
-    dc.setColor(allDone ? Graphics.COLOR_YELLOW : Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+    dc.setColor(
+      allDone ? Graphics.COLOR_YELLOW : Graphics.COLOR_LT_GRAY,
+      Graphics.COLOR_TRANSPARENT
+    );
     var footer = allDone
       ? Lang.format(Ui.s(Rez.Strings.QuestAll), [g.currentStreak()])
       : Ui.s(Rez.Strings.QuestHint);
-    dc.drawText(w / 2, (h * 84) / 100, Graphics.FONT_XTINY, footer, Ui.center());
+    dc.drawText(
+      w / 2,
+      (h * 84) / 100,
+      Graphics.FONT_XTINY,
+      footer,
+      Ui.center()
+    );
   }
 
   hidden function drawRecords(dc as Graphics.Dc, g as GameState) as Void {
@@ -251,7 +314,7 @@ class MainView extends WatchUi.View {
       Rez.Strings.Qg5,
       Rez.Strings.Qg6,
       Rez.Strings.Qg7,
-      Rez.Strings.Qg8
+      Rez.Strings.Qg8,
     ];
     var lines = [
       Lang.format(Ui.s(Rez.Strings.RecQg), [Ui.s(qinggong[g.realm])]),
@@ -261,17 +324,32 @@ class MainView extends WatchUi.View {
       g.hasFloors
         ? Lang.format(Ui.s(Rez.Strings.RecFloors), [g.best[1]])
         : Lang.format(Ui.s(Rez.Strings.RecIm), [g.best[2]]),
-      Lang.format(Ui.s(Rez.Strings.RecTotal), [g.total[0]])
+      Lang.format(Ui.s(Rez.Strings.RecTotal), [g.total[0]]),
     ];
     for (var i = 0; i < lines.size(); i++) {
-      dc.setColor(i == 0 ? Graphics.COLOR_YELLOW : Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-      dc.drawText(w / 2, (h * (29 + 10 * i)) / 100, Graphics.FONT_XTINY, lines[i], Ui.center());
+      dc.setColor(
+        i == 0 ? Graphics.COLOR_YELLOW : Graphics.COLOR_WHITE,
+        Graphics.COLOR_TRANSPARENT
+      );
+      dc.drawText(
+        w / 2,
+        (h * (29 + 10 * i)) / 100,
+        Graphics.FONT_XTINY,
+        lines[i],
+        Ui.center()
+      );
     }
   }
 
   hidden function drawTitle(dc as Graphics.Dc, text as String) as Void {
     dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-    dc.drawText(dc.getWidth() / 2, (dc.getHeight() * 13) / 100, Graphics.FONT_SMALL, text, Ui.center());
+    dc.drawText(
+      dc.getWidth() / 2,
+      (dc.getHeight() * 13) / 100,
+      Graphics.FONT_SMALL,
+      text,
+      Ui.center()
+    );
   }
 
   hidden function drawPageDots(dc as Graphics.Dc) as Void {
@@ -281,7 +359,10 @@ class MainView extends WatchUi.View {
     var x = w - (w * 5) / 100;
     for (var i = 0; i < PAGES; i++) {
       var y = h / 2 + ((2 * i - PAGES + 1) * h) / 50;
-      dc.setColor(i == _page ? Graphics.COLOR_WHITE : Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+      dc.setColor(
+        i == _page ? Graphics.COLOR_WHITE : Graphics.COLOR_DK_GRAY,
+        Graphics.COLOR_TRANSPARENT
+      );
       dc.fillCircle(x, y, r);
     }
   }
