@@ -1,6 +1,10 @@
 # Serverless Analytics
 
-可自部署的通用埋点分析服务。运行在 Serverless 上（优先 Cloudflare，也支持 Vercel），Web、Android、iOS、桌面端都可以通过 HTTP 上报；数据库、缓存、队列均可通过配置切换。
+一个跑在 Serverless 环境里的埋点分析服务。客户端把事件**攒成批次提交**，服务端校验、补全后写入数据库，在看板里分析。
+
+- **Serverless**：部署到 Cloudflare Workers（D1 + KV）或 Vercel（Postgres / Supabase），没有需要维护的服务器，空闲时几乎零成本。
+- **分批次提交**：Web、Android、iOS、桌面端通过一个 HTTP 接口 `POST /v1/batch` 一次提交多个事件；整批只用一条 SQL 写入，带幂等 id，失败重试不会重复计数。
+- **可自部署**：数据库、缓存、队列都通过环境变量切换，数据留在你自己的账号里。
 
 ![Overview](docs/images/02-overview-light.png)
 
@@ -52,7 +56,19 @@ cd ../.. && pnpm deploy:cloudflare
 2. 设置环境变量：`ADMIN_PASSWORD`、`DATABASE_URL`（Supabase 请使用 6543 端口的 Pooler 连接串）、`CRON_SECRET`；可选 `UPSTASH_REDIS_REST_*`、`QUEUE_DRIVER=qstash` 等。
 3. 部署后打开站点并初始化数据库。
 
-## 上报事件
+## 上报事件（批量）
+
+客户端在本地排队，按「攒够 N 条」或「每隔几秒」打包成一批提交；页面关闭或 App 退到后台时立刻提交剩余事件。
+
+```
+客户端队列 ──(每批 ≤ 100 条，可 gzip)──▶ POST /v1/batch ──▶ 校验 / 补全 ──▶ 队列驱动 ──▶ 一条 SQL 写入整批
+```
+
+- 每个事件带客户端生成的 `id`，服务端按 `(app, id)` 去重，重试安全。
+- 批次里的坏事件单独返回在 `rejected` 里，不影响同批其他事件。
+- 带上 `sentAt`，服务端会修正设备时钟偏差。
+- 写库方式由 `QUEUE_DRIVER` 决定：同步写入、后台写入，或经 Cloudflare Queues / Upstash QStash 再合并成更大的批次。
+
 
 ```sh
 curl -X POST https://<your-deployment>/v1/batch \
@@ -63,7 +79,12 @@ curl -X POST https://<your-deployment>/v1/batch \
 ```ts
 import { createAnalytics } from '@serverless-analytics/sdk'
 
-const analytics = createAnalytics({ endpoint: 'https://<your-deployment>', writeKey: '<write key>' })
+const analytics = createAnalytics({
+  endpoint: 'https://<your-deployment>',
+  writeKey: '<write key>',
+  flushAt: 20, // 攒够 20 条提交一批
+  flushInterval: 5000, // 或每 5 秒提交一次
+})
 analytics.identify('user-42')
 analytics.track('purchase', { plan: 'pro', amount: 29 })
 ```
