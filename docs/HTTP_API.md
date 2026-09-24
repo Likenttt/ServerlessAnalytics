@@ -31,7 +31,8 @@ Content-Encoding: gzip        (可选)
     "os": "Android",
     "osVersion": "15",
     "device": "Pixel 9",
-    "locale": "zh-CN"
+    "locale": "zh-CN",
+    "channel": "huawei"             // 渠道：应用商店 / 渠道包 / utm_source
   },
   "events": [
     {
@@ -78,7 +79,9 @@ curl -X POST https://analytics.example.com/v1/track \
 | 时间 | 超过服务端时间 1 分钟以上的未来时间会被修正为接收时间；超过 400 天的旧事件会被拒绝 |
 | 批次 | 默认最多 100 个事件、1 MB（可通过 `MAX_BATCH_SIZE` / `MAX_BODY_BYTES` 调整） |
 
-服务端会自动补充：国家（来自 Cloudflare / Vercel 的地理请求头）、语言（`Accept-Language`），以及浏览器流量的操作系统 / 浏览器 / 设备类型。不保存 IP 地址。
+内置事件：`$error`（错误上报，属性为 `type`、`message`、`stack`、`fatal`、`handled`，服务端会自动归类）和 `$pageview`。`$` 开头的事件在 strict 模式下不需要事先定义。
+
+服务端会自动补充：地区（Cloudflare 的 `regionCode` 或 Vercel 的 `x-vercel-ip-country-region`）、国家（来自 Cloudflare / Vercel 的地理请求头）、语言（`Accept-Language`），以及浏览器流量的操作系统 / 浏览器 / 设备类型。不保存 IP 地址。
 
 ## 原生客户端建议
 

@@ -25,6 +25,7 @@
 | 变量 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `ADMIN_PASSWORD` | ✅ | — | 看板登录密码，至少 8 位。**以 Secret 方式设置**。修改后所有会话失效。 |
+| `ADMIN_API_TOKEN` | | — | 可选，≥ 24 位。其他服务通过 `Authorization: Bearer <token>` 调用 `/api/*` 读取数据（等同管理员权限，只放在服务端）。 |
 | `SESSION_SECRET` | | 等于 `ADMIN_PASSWORD` | 会话 Cookie 的签名密钥。单独设置后，修改密码不会让会话失效。 |
 | `MAX_BATCH_SIZE` | | `100` | 单次上报最多事件数（1–1000）。 |
 | `MAX_BODY_BYTES` | | `1000000` | 上报请求体上限（解压后）。 |
