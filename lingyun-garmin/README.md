@@ -1,6 +1,6 @@
 # 凌云志 · 佳明手表武侠养成
 
-一介凡夫，志在凌云。每天走路、爬楼、运动就是练功，再加上手表上的出拳、腾跃、站桩、吐纳四门功课，从「凡夫俗子」一路修炼到能凌空飞行的「御风宗师」。
+一介凡夫，志在凌云。每天走路、爬楼、运动就是练功，再加上手表上的出拳、腾跃、站桩、吐纳四门功课，从「凡夫俗子」一路修炼到能凌空飞行的「御风宗师」。画面是像素风位图：Q 版少侠、夜色群山、祥云、真气。
 
 ![预览](docs/preview.png)
 
@@ -18,7 +18,7 @@
 | 存档 | `Application.Storage` |
 | 节奏提示 | `Attention.vibrate` |
 | 在 Glance 里看境界 | `getGlanceView()` |
-| 角色与动画 | `Dc` 图元绘制 + `Timer`，自动适配各种屏幕 |
+| 角色与动画 | 像素风位图（`WatchUi.loadResource` + `Dc.drawBitmap`）按屏幕尺寸放大 2～5 倍，`Timer` 切帧 |
 
 需要取舍的地方：
 
@@ -91,6 +91,39 @@
 - **修炼**：按键开始 → 3 秒倒计时 → 练功 → 结算，按键回到角色；中途按返回键放弃，不计分
 - **Glance**：显示门派境界、突破进度、当天日课完成数
 
+## 美术
+
+全部画面都是位图，没有用图元拼角色。美术以「1 个美术像素」为单位用代码画在 `art/` 里，再按屏幕放大：
+
+| 文件 | 内容 |
+| --- | --- |
+| `art/pixel.py` | 像素画小工具：图层、描边、64 色调色板 |
+| `art/hero.py` | Q 版少侠，13 个姿势：站立（两帧呼吸）、打盹、抱拳、马步蓄拳 / 推掌、站桩、金鸡独立、御风（两帧）、打坐、起跳 / 腾空 |
+| `art/outfits.py` | 五套衣服：布衣、少林、逍遥、武当、峨眉（替换道袍和腰带的模板色） |
+| `art/scene.py` | 夜景远山（带凉亭）、松林、月亮、浮云、祥云、影子、Zzz、真气光点、吐纳气团、出拳火花、图标 |
+| `art/export.py` | 导出脚本 |
+
+修改美术后运行：
+
+```sh
+pip install pillow
+python3 art/export.py
+```
+
+它会：
+
+- 按最近邻放大生成 `resources-art-p2` ～ `resources-art-p5`（1 美术像素 = 2～5 屏幕像素，像素边缘保持锐利），远山按每档最宽的屏幕裁剪以省内存；
+- 在 `monkey.jungle` 里把每个设备映射到对应的放大档位（240 及以下 ×2，260/280 ×3，360～416 ×4，454 及以上 ×5）；
+- 生成 `source/ArtIds.mc`（位图资源 ID 表）和启动图标。
+
+预览全部姿势和服装：`cd art && python3 preview.py 6 /tmp/sheet.png`。
+
+所有颜色都取自佳明 64 色（每个通道 00/55/AA/FF），MIP 屏和 AMOLED 屏显示一致。想换成手绘美术，让 `hero.py` / `scene.py` 读你自己的 1 倍 PNG 即可，其余流程不变；道袍和腰带要用模板色（见 `pixel.py`），才能按门派换色。
+
+## 支持的设备
+
+Connect IQ 4 及以上的手表：fēnix 7 / 8 / E、epix 2、Enduro 3、Forerunner 165 / 255 / 265 / 570 / 955 / 965 / 970、MARQ 2、Venu 2 / 3 / 4 / X1 / Sq 2、vívoactive 5 / 6（完整列表见 `manifest.xml`）。更早的 fēnix 6、FR245 / 745 / 945、vívoactive 4 等机型上位图直接占用很小的应用内存，所以没有列入。
+
 ## 构建与运行
 
 需要 Connect IQ SDK（建议 7.x 或更新）和 VS Code 的 Monkey C 扩展。
@@ -121,22 +154,25 @@ monkeydo bin/lingyun.prg fr965
 | --- | --- |
 | `source/Rules.mc` | 数值与规则 |
 | `source/GameState.mc` | 存档、活动结算（含跨天补算、不重复计数）、日课、连续天数、突破条件 |
-| `source/Figure.mc` | 角色绘制：姿态、道袍、真气、悬浮、云 |
+| `source/Stage.mc` | 加载和绘制位图：夜空、远山、角色姿势、悬浮、祥云、真气；视图隐藏时释放位图 |
+| `source/ArtIds.mc` | 位图资源 ID 表（由 `art/export.py` 生成，不要手改） |
 | `source/MainView.mc` / `MainDelegate.mc` | 四个主页面与翻页 |
 | `source/Menus.mc` | 修炼菜单 |
-| `source/TrainView.mc` / `Motion.mc` | 四门修炼与突破试炼；出拳 / 腾跃计数、静立检测 |
+| `source/TrainView.mc` / `Motion.mc` | 四门修炼与突破试炼（角色随每一拳、每一跳做动作）；出拳 / 腾跃计数、静立检测 |
 | `source/MessageView.mc` | 说明页、突破条件未满足的提示 |
 | `source/LingyunGlanceView.mc` | Glance |
 | `source/Debug.mc` | 仅调试版的辅助功能 |
 | `source/Ui.mc` | 文本资源与小绘图工具 |
 | `resources/strings/strings.xml` | 全部中文文案 |
+| `resources-art-p*/` | 各放大档位的位图（由 `art/export.py` 生成） |
+| `art/` | 像素美术源码与导出脚本 |
 
 ## 验证情况
 
 - 开发环境无法访问 developer.garmin.com，拿不到 SDK，所以**还没有用 monkeyc 编译过，也没有在模拟器或真表上运行过**。
 - 已经做的检查：
   - 用 prettier-plugin-monkeyc 解析并格式化全部源码。
-  - 用一个自写的 Monkey C 解释器和 Toybox API 桩做静态检查：未定义符号、参数个数、glance 作用域、`(:debug)` / `(:release)` 成对。
+  - 用一个自写的 Monkey C 解释器和 Toybox API 桩做静态检查：未定义符号（含每个 `Rez.Drawables` 位图 ID）、参数个数、glance 作用域、`(:debug)` / `(:release)` 成对。
   - 跑了 64 项场景断言：重复结算不多算、跨天与多天补算、两种历史时间戳约定、训练每日上限、试炼成败、三流定门派、无气压计的表、发布版无调试项、glance。预览图也来自这个解释器。
 - 第一次编译如果报类型错误，多半是类型注解问题，按编译器提示调整即可。
 
@@ -144,6 +180,5 @@ monkeydo bin/lingyun.prg fr965
 
 - 在真表上校准动作阈值
 - 英文资源（加 `resources-eng`）
-- 位图或像素画角色
 - 后台服务，提醒日课或久坐
 - 奇遇、比武、秘籍等随机事件，例如用 GPS 跑步距离解锁

@@ -109,7 +109,6 @@
   <string id="Inhale">吸</string>
   <string id="Exhale">呼</string>
   <string id="SecFmt">$1$ 秒</string>
-  <string id="HeartFmt">心率 $1$</string>
   <string id="CountFmt0">出拳 $1$ 次</string>
   <string id="CountFmt1">腾跃 $1$ 次</string>
   <string id="CountFmt2">静立 $1$ 秒</string>

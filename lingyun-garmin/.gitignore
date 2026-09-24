@@ -5,3 +5,4 @@ gen/
 *.der
 *.pem
 .vscode/
+__pycache__/

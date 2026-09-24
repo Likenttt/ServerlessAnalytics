@@ -14,9 +14,21 @@ function openMainMenu() as Void {
       {}
     )
   );
+  var icons = [
+    Rez.Drawables.icon_fist,
+    Rez.Drawables.icon_feather,
+    Rez.Drawables.icon_flame,
+    Rez.Drawables.icon_lotus,
+  ];
   for (var i = 0; i < 4; i++) {
     menu.addItem(
-      new WatchUi.MenuItem(Ui.trainName(i), Ui.trainSub(g, i), i, {})
+      new WatchUi.IconMenuItem(
+        Ui.trainName(i),
+        Ui.trainSub(g, i),
+        i,
+        WatchUi.loadResource(icons[i]),
+        {}
+      )
     );
   }
   menu.addItem(

@@ -1,6 +1,5 @@
 import Toybox.Graphics;
 import Toybox.Lang;
-import Toybox.System;
 import Toybox.Timer;
 import Toybox.WatchUi;
 
@@ -13,6 +12,7 @@ class MainView extends WatchUi.View {
   hidden var _timer;
   hidden var _msg as String? = null;
   hidden var _msgTicks = 0;
+  hidden var _stage = null;
 
   // Texts are refreshed on show so the 4 fps animation loads no resources.
   hidden var _title = "";
@@ -47,11 +47,17 @@ class MainView extends WatchUi.View {
           ]);
     _status = Ui.blockerText(g);
     _ready = g.blocker() == Rules.BLOCK_NONE;
+    _stage = new Stage();
     _timer.start(method(:onTick), 250, true);
   }
 
+  // Hidden views keep no bitmaps; trainings need the memory.
   function onHide() as Void {
     _timer.stop();
+    if (_stage != null) {
+      _stage.release();
+      _stage = null;
+    }
   }
 
   function onTick() as Void {
@@ -82,6 +88,9 @@ class MainView extends WatchUi.View {
     var g = game();
     dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_BLACK);
     dc.clear();
+    if (_stage == null) {
+      _stage = new Stage();
+    }
     if (_page == 0) {
       drawHero(dc, g);
     } else if (_page == 1) {
@@ -97,9 +106,9 @@ class MainView extends WatchUi.View {
   hidden function drawHero(dc as Graphics.Dc, g as GameState) as Void {
     var w = dc.getWidth();
     var h = dc.getHeight();
-    var ground = (h * 66) / 100;
-    drawScenery(dc, w, h, ground);
-    Figure.draw(dc, w / 2, ground, h / 30.0, g.realm, g.sect, g.mood(), _phase);
+    var ground = (h * 68) / 100;
+    _stage.drawScenery(dc, ground, _phase);
+    _stage.drawHeroScene(dc, ground, g.realm, g.sect, g.mood(), _phase);
 
     dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
     dc.drawText(
@@ -141,39 +150,6 @@ class MainView extends WatchUi.View {
     );
   }
 
-  // Night mountains under a moon, or the sun by day.
-  hidden function drawScenery(
-    dc as Graphics.Dc,
-    w as Number,
-    h as Number,
-    ground as Number
-  ) as Void {
-    var hour = System.getClockTime().hour;
-    var night = hour < 6 || hour >= 18;
-    var mx = (w * 74) / 100;
-    var my = (h * 30) / 100;
-    var mr = h / 22;
-    dc.setColor(night ? 0xffff55 : 0xff5500, Graphics.COLOR_TRANSPARENT);
-    dc.fillCircle(mx, my, mr);
-    if (night) {
-      dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-      dc.fillCircle(mx + mr / 2, my - mr / 3, mr);
-    }
-    dc.setColor(0x000055, Graphics.COLOR_TRANSPARENT);
-    dc.fillPolygon([
-      [0, ground],
-      [(w * 20) / 100, ground - (h * 17) / 100],
-      [(w * 42) / 100, ground],
-    ]);
-    dc.fillPolygon([
-      [(w * 28) / 100, ground],
-      [(w * 62) / 100, ground - (h * 25) / 100],
-      [w, ground],
-    ]);
-    dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-    dc.drawLine(0, ground, w, ground);
-  }
-
   hidden function drawAttributes(dc as Graphics.Dc, g as GameState) as Void {
     var w = dc.getWidth();
     var h = dc.getHeight();
@@ -194,14 +170,21 @@ class MainView extends WatchUi.View {
       Graphics.COLOR_YELLOW,
       Graphics.COLOR_PURPLE,
     ];
-    var x = (w * 18) / 100;
-    var bw = (w * 64) / 100;
+    var icons = [
+      Rez.Drawables.icon_fist,
+      Rez.Drawables.icon_feather,
+      Rez.Drawables.icon_flame,
+      Rez.Drawables.icon_lotus,
+    ];
+    var x = (w * 22) / 100;
+    var bw = (w * 60) / 100;
     var bh = h / 50 > 3 ? h / 50 : 3;
     var left = Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER;
     var right = Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER;
     for (var i = 0; i < 4; i++) {
       var y = (h * (27 + 14 * i)) / 100;
       var name = Ui.attrName(i);
+      drawIcon(dc, x, y + (h * 2) / 100, icons[i]);
       dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
       dc.drawText(x, y, Graphics.FONT_XTINY, name, left);
       dc.drawText(x + bw, y, Graphics.FONT_XTINY, g.attr[i].toString(), right);
@@ -253,13 +236,19 @@ class MainView extends WatchUi.View {
       g.hasFloors ? Rez.Strings.Quest1 : Rez.Strings.Quest1Alt,
       Rez.Strings.Quest2,
     ];
-    var x = (w * 18) / 100;
-    var bw = (w * 64) / 100;
+    var icons = [
+      Rez.Drawables.icon_foot,
+      g.hasFloors ? Rez.Drawables.icon_stairs : Rez.Drawables.icon_feather,
+      Rez.Drawables.icon_heart,
+    ];
+    var x = (w * 22) / 100;
+    var bw = (w * 60) / 100;
     var bh = h / 50 > 3 ? h / 50 : 3;
     var left = Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER;
     var right = Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER;
     for (var q = 0; q < 3; q++) {
       var y = (h * (34 + 15 * q)) / 100;
+      drawIcon(dc, x, y + (h * 2) / 100, icons[q]);
       var value = g.questValue(q);
       var target = Rules.questTarget(q, g.realm, g.hasFloors);
       var done = (g.quest & (1 << q)) != 0;
@@ -340,6 +329,21 @@ class MainView extends WatchUi.View {
         Ui.center()
       );
     }
+  }
+
+  // A pixel icon just left of x, vertically centred on y.
+  hidden function drawIcon(
+    dc as Graphics.Dc,
+    x as Number,
+    y as Number,
+    id
+  ) as Void {
+    var bmp = _stage.art(id);
+    dc.drawBitmap(
+      x - bmp.getWidth() - dc.getWidth() / 50,
+      y - bmp.getHeight() / 2,
+      bmp
+    );
   }
 
   hidden function drawTitle(dc as Graphics.Dc, text as String) as Void {

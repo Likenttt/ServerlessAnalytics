@@ -35,6 +35,9 @@ class TrainView extends WatchUi.View {
   hidden var _gained = 0;
   hidden var _capped = false;
   hidden var _passed = false;
+  hidden var _stage = null;
+  hidden var _lastCount = 0;
+  hidden var _flash = 0; // ticks to show the strike / jump frame
 
   // Texts loaded once; the view redraws ten times a second while running.
   hidden var _title;
@@ -85,8 +88,6 @@ class TrainView extends WatchUi.View {
       :inhale => Ui.s(Rez.Strings.Inhale),
       :exhale => Ui.s(Rez.Strings.Exhale),
       :sec => Ui.s(Rez.Strings.SecFmt),
-      :heart => Ui.s(Rez.Strings.HeartFmt),
-      :sub => Ui.trainSub(g, type),
     };
   }
 
@@ -94,6 +95,10 @@ class TrainView extends WatchUi.View {
   function onHide() as Void {
     stopSensors();
     _timer.stop();
+    if (_stage != null) {
+      _stage.release();
+      _stage = null;
+    }
     if (_state == COUNTDOWN || _state == RUN) {
       _state = READY;
     }
@@ -125,6 +130,13 @@ class TrainView extends WatchUi.View {
       _elapsed = now - _t0;
       if (_type == Rules.MIND) {
         breathCue();
+      }
+      if (_flash > 0) {
+        _flash -= 1;
+      }
+      if (_impacts != null && _impacts.count != _lastCount) {
+        _lastCount = _impacts.count;
+        _flash = 3;
       }
       var early = _trial && _still != null && _still.steady >= _goal;
       if (_elapsed >= duration() || early) {
@@ -293,9 +305,17 @@ class TrainView extends WatchUi.View {
     var h = dc.getHeight();
     dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_BLACK);
     dc.clear();
+    if (_stage == null) {
+      _stage = new Stage();
+    }
+    if (_state == RUN) {
+      var left = duration() - _elapsed;
+      ring(dc, w, h, ((left < 0 ? 0 : left) * 100) / duration());
+    }
+    dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
     dc.drawText(
       w / 2,
-      (h * 15) / 100,
+      (h * 14) / 100,
       Graphics.FONT_SMALL,
       _title,
       Ui.center()
@@ -303,19 +323,42 @@ class TrainView extends WatchUi.View {
     if (_state == READY) {
       drawReady(dc, w, h);
     } else if (_state == COUNTDOWN) {
-      var left = 3 - (System.getTimer() - _t0) / 1000;
+      var n = 3 - (System.getTimer() - _t0) / 1000;
       dc.drawText(
         w / 2,
-        h / 2,
-        Graphics.FONT_NUMBER_HOT,
-        (left < 1 ? 1 : left).toString(),
+        (h * 34) / 100,
+        Graphics.FONT_NUMBER_MEDIUM,
+        (n < 1 ? 1 : n).toString(),
         Ui.center()
       );
+      hero(dc, w, h, readyPose(), 0);
     } else if (_state == RUN) {
-      drawRun(dc, w, h);
+      if (_type == Rules.MIND) {
+        drawBreath(dc, w, h);
+      } else {
+        drawRun(dc, w, h);
+      }
     } else {
       drawDone(dc, w, h);
     }
+  }
+
+  // The hero stands at the bottom centre, raised by lift art pixels.
+  hidden function hero(
+    dc as Graphics.Dc,
+    w as Number,
+    h as Number,
+    pose as Number,
+    lift as Number
+  ) as Void {
+    var g = game();
+    var p = _stage.scale;
+    _stage.drawHero(dc, w / 2, (h * 86) / 100 - lift * p, g.sect + 1, pose);
+  }
+
+  hidden function readyPose() as Number {
+    var poses = [Art.STRIKE0, Art.JUMP0, Art.HORSE, Art.MEDITATE];
+    return poses[_type];
   }
 
   hidden function drawReady(
@@ -324,48 +367,32 @@ class TrainView extends WatchUi.View {
     h as Number
   ) as Void {
     dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-    dc.drawText(w / 2, (h * 38) / 100, Graphics.FONT_XTINY, _hint, Ui.center());
+    dc.drawText(w / 2, (h * 29) / 100, Graphics.FONT_XTINY, _hint, Ui.center());
     dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
     dc.drawText(
       w / 2,
-      (h * 57) / 100,
+      (h * 43) / 100,
       Graphics.FONT_SMALL,
       _goalText,
       Ui.center()
     );
-    if (!_trial) {
-      dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-      dc.drawText(
-        w / 2,
-        (h * 68) / 100,
-        Graphics.FONT_XTINY,
-        _labels[:sub],
-        Ui.center()
-      );
-    }
+    hero(dc, w, h, readyPose(), 0);
     dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
     dc.drawText(
       w / 2,
-      (h * 82) / 100,
+      (h * 93) / 100,
       Graphics.FONT_XTINY,
       _labels[:start],
       Ui.center()
     );
   }
 
+  // Punch, leap and stance: the count on top, the hero acting it out below.
   hidden function drawRun(dc as Graphics.Dc, w as Number, h as Number) as Void {
-    var total = duration();
-    var left = total - _elapsed;
-    if (left < 0) {
-      left = 0;
-    }
-    ring(dc, w, h, (left * 100) / total);
-    var secs = Lang.format(_labels[:sec], [(left + 999) / 1000]);
-
-    if (_type == Rules.MIND) {
-      drawBreath(dc, w, h, secs);
-      return;
-    }
+    var left = duration() - _elapsed;
+    var secs = Lang.format(_labels[:sec], [
+      ((left < 0 ? 0 : left) + 999) / 1000,
+    ]);
     var big = _impacts != null ? _impacts.count : _still.steady;
     var color = Graphics.COLOR_WHITE;
     if (_still != null) {
@@ -374,12 +401,11 @@ class TrainView extends WatchUi.View {
     dc.setColor(color, Graphics.COLOR_TRANSPARENT);
     dc.drawText(
       w / 2,
-      (h * 47) / 100,
-      Graphics.FONT_NUMBER_HOT,
+      (h * 30) / 100,
+      Graphics.FONT_NUMBER_MEDIUM,
       big.toString(),
       Ui.center()
     );
-    dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
     var under = secs;
     if (_trial) {
       under = "/ " + _goal + "   " + secs;
@@ -388,42 +414,83 @@ class TrainView extends WatchUi.View {
       under =
         (_still.shaky ? _labels[:shaky] : _labels[:steady]) + "   " + under;
     }
-    dc.drawText(w / 2, (h * 72) / 100, Graphics.FONT_XTINY, under, Ui.center());
+    dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+    dc.drawText(w / 2, (h * 43) / 100, Graphics.FONT_XTINY, under, Ui.center());
+
+    var p = _stage.scale;
+    if (_type == Rules.BODY) {
+      hero(dc, w, h, _flash > 0 ? Art.STRIKE1 : Art.STRIKE0, 0);
+      if (_flash > 0) {
+        _stage.drawCentered(
+          dc,
+          w / 2 + 13 * p,
+          (h * 86) / 100 - 14 * p,
+          Rez.Drawables.spark
+        );
+      }
+    } else if (_type == Rules.AGILITY) {
+      hero(dc, w, h, _flash > 0 ? Art.JUMP1 : Art.JUMP0, _flash > 0 ? 4 : 0);
+    } else {
+      var shake = _still.shaky ? ((_elapsed / 100) % 2) * 2 - 1 : 0;
+      _stage.drawHero(
+        dc,
+        w / 2 + shake * p,
+        (h * 86) / 100,
+        game().sect + 1,
+        Art.HORSE
+      );
+    }
   }
 
-  // A circle that swells while breathing in and shrinks while breathing out.
+  // The meditating hero under a qi orb that swells on the in-breath.
   hidden function drawBreath(
     dc as Graphics.Dc,
     w as Number,
-    h as Number,
-    secs as String
+    h as Number
   ) as Void {
     var t = _elapsed % CYCLE_MS;
     var inhale = t < INHALE_MS;
     var k = inhale
       ? (t * 100) / INHALE_MS
       : 100 - ((t - INHALE_MS) * 100) / (CYCLE_MS - INHALE_MS);
-    var rMin = h / 12;
-    var rMax = h / 4;
-    var r = rMin + ((rMax - rMin) * k) / 100;
-    dc.setColor(0x0055aa, Graphics.COLOR_TRANSPARENT);
-    dc.fillCircle(w / 2, h / 2, r);
-    dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+    var size = (k * 4) / 101;
+    dc.setColor(inhale ? 0x55aaff : 0xaaaaff, Graphics.COLOR_TRANSPARENT);
     dc.drawText(
       w / 2,
-      h / 2,
-      Graphics.FONT_MEDIUM,
+      (h * 25) / 100,
+      Graphics.FONT_SMALL,
       inhale ? _labels[:inhale] : _labels[:exhale],
       Ui.center()
     );
+    var orbs = [
+      Rez.Drawables.orb_0,
+      Rez.Drawables.orb_1,
+      Rez.Drawables.orb_2,
+      Rez.Drawables.orb_3,
+    ];
+    var orb = _stage.art(orbs[size]);
+    dc.drawBitmap(
+      w / 2 - orb.getWidth() / 2,
+      (h * 42) / 100 - orb.getHeight() / 2,
+      orb
+    );
+    hero(dc, w, h, Art.MEDITATE, 0);
+
     var planned = duration() / CYCLE_MS;
-    var line =
-      (_elapsed / CYCLE_MS + 1).toString() + "/" + planned + "   " + secs;
-    if (_hr != null) {
-      line = line + "   " + Lang.format(_labels[:heart], [_hr]);
-    }
+    var line = (_elapsed / CYCLE_MS + 1).toString() + "/" + planned;
     dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-    dc.drawText(w / 2, (h * 82) / 100, Graphics.FONT_XTINY, line, Ui.center());
+    dc.drawText(w / 2, (h * 92) / 100, Graphics.FONT_XTINY, line, Ui.center());
+    if (_hr != null) {
+      var x = (w * 20) / 100;
+      _stage.drawCentered(dc, x, (h * 42) / 100, Rez.Drawables.icon_heart);
+      dc.drawText(
+        x,
+        (h * 51) / 100,
+        Graphics.FONT_XTINY,
+        _hr.toString(),
+        Ui.center()
+      );
+    }
   }
 
   // Remaining time as a ring along the screen edge, starting at 12 o'clock.
@@ -462,6 +529,7 @@ class TrainView extends WatchUi.View {
       Rez.Strings.CountFmt2,
       Rez.Strings.CountFmt3,
     ];
+    var pose = Art.SALUTE;
     if (_trial) {
       dc.setColor(
         _passed ? Graphics.COLOR_YELLOW : Graphics.COLOR_LT_GRAY,
@@ -469,7 +537,7 @@ class TrainView extends WatchUi.View {
       );
       dc.drawText(
         w / 2,
-        (h * 36) / 100,
+        (h * 28) / 100,
         Graphics.FONT_MEDIUM,
         Ui.s(_passed ? Rez.Strings.TrialOk : Rez.Strings.TrialFail),
         Ui.center()
@@ -480,7 +548,7 @@ class TrainView extends WatchUi.View {
         : _score.toString() + " / " + _goal;
       dc.drawText(
         w / 2,
-        (h * 52) / 100,
+        (h * 39) / 100,
         Graphics.FONT_SMALL,
         detail,
         Ui.center()
@@ -488,8 +556,10 @@ class TrainView extends WatchUi.View {
       var extra = null;
       if (!_passed) {
         extra = Ui.s(Rez.Strings.RetryHint);
+        pose = Art.SLEEP;
       } else if (g.realm == Rules.REALM_MAX) {
         extra = Ui.s(Rez.Strings.Soar);
+        pose = Art.FLY0;
       } else if (g.realm == 3) {
         extra = Lang.format(Ui.s(Rez.Strings.JoinSect), [Ui.sectName(g.sect)]);
       }
@@ -497,7 +567,7 @@ class TrainView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(
           w / 2,
-          (h * 65) / 100,
+          (h * 48) / 100,
           Graphics.FONT_XTINY,
           extra,
           Ui.center()
@@ -507,7 +577,7 @@ class TrainView extends WatchUi.View {
       dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
       dc.drawText(
         w / 2,
-        (h * 38) / 100,
+        (h * 28) / 100,
         Graphics.FONT_MEDIUM,
         Ui.attrName(_type) + " +" + _gained,
         Ui.center()
@@ -515,7 +585,7 @@ class TrainView extends WatchUi.View {
       dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
       dc.drawText(
         w / 2,
-        (h * 53) / 100,
+        (h * 39) / 100,
         Graphics.FONT_SMALL,
         Lang.format(Ui.s(counts[_type]), [_score]),
         Ui.center()
@@ -524,17 +594,22 @@ class TrainView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(
           w / 2,
-          (h * 65) / 100,
+          (h * 48) / 100,
           Graphics.FONT_XTINY,
           Ui.s(Rez.Strings.Capped),
           Ui.center()
         );
       }
     }
+    hero(dc, w, h, pose, 0);
+    if (_trial && _passed) {
+      var p = _stage.scale;
+      _stage.drawQi(dc, w / 2, (h * 86) / 100 - 14 * p, 6, 0);
+    }
     dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
     dc.drawText(
       w / 2,
-      (h * 82) / 100,
+      (h * 93) / 100,
       Graphics.FONT_XTINY,
       _labels[:back],
       Ui.center()
