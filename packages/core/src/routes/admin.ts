@@ -68,6 +68,12 @@ adminRoutes.post('/auth/logout', (c) => {
 
 const requireSession: MiddlewareHandler<AppEnv> = async (c, next) => {
   const { config } = c.get('services')
+  // Programmatic access: `Authorization: Bearer <ADMIN_API_TOKEN>` (no cookie, so no CSRF risk).
+  const auth = c.req.header('authorization')
+  if (config.auth.apiToken && auth?.startsWith('Bearer ')) {
+    if (!(await checkPassword(config.auth.apiToken, auth.slice(7).trim()))) throw apiError(401, 'unauthorized', 'Invalid API token')
+    return next()
+  }
   if (!(await verifySessionToken(config.auth.sessionSecret, getCookie(c, SESSION_COOKIE)))) {
     throw apiError(401, 'unauthorized', 'Sign in to continue')
   }
