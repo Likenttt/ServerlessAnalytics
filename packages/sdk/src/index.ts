@@ -18,6 +18,11 @@ export interface AnalyticsOptions {
   /** Platform reported with every event. Default "web" in browsers, otherwise unset. */
   platform?: string
   appVersion?: string
+  /**
+   * Acquisition / distribution channel (e.g. "appstore", "googleplay", "huawei").
+   * In browsers it defaults to the first-touch utm_source, or the referring domain.
+   */
+  channel?: string
   /** Track a `$pageview` on load and on history navigation. Default false. */
   autoPageviews?: boolean
   /** Minutes of inactivity before a new session starts. Default 30. */
@@ -128,7 +133,25 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
   const context = {
     platform: options.platform ?? (isBrowser ? 'web' : undefined),
     appVersion: options.appVersion,
+    channel: options.channel ?? firstTouchChannel(),
     locale: typeof navigator !== 'undefined' ? navigator.language : undefined,
+  }
+
+  // First touch wins: the channel that brought this visitor is kept across visits.
+  function firstTouchChannel(): string | undefined {
+    const stored = store.get<string>('channel')
+    if (stored) return stored
+    if (!isBrowser) return undefined
+    let channel: string | undefined
+    try {
+      channel = new URLSearchParams(location.search).get('utm_source') ?? undefined
+      if (!channel && document.referrer) {
+        const host = new URL(document.referrer).hostname.replace(/^www\./, '')
+        if (host && host !== location.hostname) channel = host
+      }
+    } catch {}
+    if (channel) store.set('channel', channel.slice(0, 64))
+    return channel?.slice(0, 64)
   }
 
   const save = () => store.set('queue', queue)
@@ -273,7 +296,7 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
       superProperties = {}
       session = null
       queue = []
-      for (const key of ['userId', 'super', 'session', 'queue']) store.remove(key)
+      for (const key of ['userId', 'super', 'session', 'queue', 'channel']) store.remove(key)
       store.set('anonymousId', anonymousId)
     },
     flush,
