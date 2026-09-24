@@ -85,6 +85,8 @@ const PG_RECORD_TYPES: Record<(typeof EVENT_COLUMNS)[number], string> = {
   locale: 'text',
   channel: 'text',
   region: 'text',
+  weight: 'float8',
+  user_weight: 'float8',
   properties: 'jsonb',
 }
 

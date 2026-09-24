@@ -118,6 +118,17 @@ const appBody = z.object({
   name: z.string().trim().min(1, 'Name is required').max(64),
   schemaMode: z.enum(['permissive', 'strict']).optional(),
   retentionDays: z.number().int().min(1).max(3650).optional(),
+  sampling: z
+    .object({
+      mode: z.enum(['full', 'sampled']),
+      strategy: z.enum(['user', 'event']),
+      rate: z.number().gt(0).max(1),
+      overrides: z
+        .array(z.object({ event: z.string().regex(EVENT_NAME, 'Invalid event name'), rate: z.number().min(0).max(1) }))
+        .max(50)
+        .refine((o) => new Set(o.map((x) => x.event)).size === o.length, 'Each event can only be overridden once'),
+    })
+    .optional(),
 })
 
 const parse = <T>(schema: z.ZodType<T>, value: unknown): T => {

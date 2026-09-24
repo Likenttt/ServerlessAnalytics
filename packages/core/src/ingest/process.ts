@@ -4,6 +4,7 @@ import type { App, EventDefinition, IngestResponse } from '../types.js'
 import { randomString } from '../util.js'
 import { EVENT_NAME, MAX_PROPERTIES, MAX_PROPERTIES_BYTES, PROPERTY_KEY } from '../validation.js'
 import { ERROR_EVENT, prepareErrorProperties } from './errors.js'
+import { decide } from './sampling.js'
 import { parseUserAgent } from './ua.js'
 
 // Wire format: see docs/HTTP_API.md.
@@ -120,6 +121,7 @@ export function processBatch(
   const ua = parseUserAgent(info.userAgent)
   const defs = definitions ? new Map(definitions.map((d) => [d.name, d])) : null
   const seen = new Set<string>()
+  let sampled = 0
 
   batch.events.forEach((raw, index) => {
     const parsed = eventSchema.safeParse(raw)
@@ -168,6 +170,12 @@ export function processBatch(
     if (seen.has(id)) return
     seen.add(id)
 
+    const sampling = decide(app.sampling, app.id, { name: event.name, id, distinctId })
+    if (!sampling.keep) {
+      sampled++
+      return
+    }
+
     const ctx: Context = { ...batch.context, ...event.context }
     const platform = clean(ctx.platform)?.toLowerCase() ?? (ua.isBrowser ? 'web' : null)
     const useUA = platform === 'web' || platform === null
@@ -191,9 +199,11 @@ export function processBatch(
       channel: clean(ctx.channel)?.toLowerCase() ?? null,
       // Only use the request's region when the country also came from the request.
       region: clean(ctx.region)?.toUpperCase() ?? (clean(ctx.country) ? null : info.region),
+      weight: sampling.weight,
+      user_weight: sampling.userWeight,
       properties,
     })
   })
 
-  return { rows, result: { ok: true, accepted: rows.length, rejected } }
+  return { rows, result: { ok: true, accepted: rows.length, sampled, rejected } }
 }

@@ -5,12 +5,33 @@ export type SchemaMode = 'permissive' | 'strict'
 export type PropertyType = 'string' | 'number' | 'boolean' | 'any'
 export type DefinitionStatus = 'active' | 'archived'
 
+export type SamplingStrategy = 'user' | 'event'
+
+/**
+ * full: keep every event. sampled: keep a share of events, decided by a hash
+ * so retries get the same answer.
+ *  - strategy "user": keep all events of a sampled share of users (funnels stay intact)
+ *  - strategy "event": decide per event (user counts become lower bounds)
+ * overrides set a different rate for specific event names (0 drops them).
+ * `$error` is kept in full unless overridden.
+ */
+export interface SamplingConfig {
+  mode: 'full' | 'sampled'
+  strategy: SamplingStrategy
+  /** Share of users / events to keep, 0 < rate ≤ 1. */
+  rate: number
+  overrides: { event: string; rate: number }[]
+}
+
+export const DEFAULT_SAMPLING: SamplingConfig = { mode: 'full', strategy: 'user', rate: 1, overrides: [] }
+
 export interface App {
   id: string
   name: string
   writeKey: string
   schemaMode: SchemaMode
   retentionDays: number
+  sampling: SamplingConfig
   createdAt: number
   updatedAt: number
 }
@@ -202,6 +223,8 @@ export interface SessionResponse {
 export interface IngestResponse {
   ok: true
   accepted: number
+  /** Valid events dropped by the app's sampling settings (don't retry these). */
+  sampled: number
   rejected: { index: number; id?: string; reason: string }[]
 }
 

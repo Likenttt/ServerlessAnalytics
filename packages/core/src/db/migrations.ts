@@ -79,6 +79,18 @@ MIGRATIONS.push({
   ],
 })
 
+MIGRATIONS.push({
+  name: '0003_sampling',
+  statements: (d) => {
+    const real = d === 'postgres' ? 'DOUBLE PRECISION' : 'REAL'
+    return [
+      `ALTER TABLE apps ADD COLUMN sampling TEXT NOT NULL DEFAULT '{"mode":"full"}'`,
+      `ALTER TABLE events ADD COLUMN weight ${real} NOT NULL DEFAULT 1`,
+      `ALTER TABLE events ADD COLUMN user_weight ${real} NOT NULL DEFAULT 1`,
+    ]
+  },
+})
+
 const isMissingTable = (error: unknown) =>
   /no such table|does not exist|42P01/i.test(String((error as { message?: string })?.message ?? error)) ||
   (error as { code?: string })?.code === '42P01'

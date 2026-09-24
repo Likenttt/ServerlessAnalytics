@@ -4,7 +4,8 @@ import { processBatch } from '../src/ingest/process.js'
 import { prepareErrorProperties } from '../src/ingest/errors.js'
 import { parseUserAgent } from '../src/ingest/ua.js'
 import { chunkBySize, verifyQstashSignature } from '../src/queue.js'
-import type { App } from '../src/types.js'
+import { DEFAULT_SAMPLING, type App, type SamplingConfig } from '../src/types.js'
+import { decide, unitHash } from '../src/ingest/sampling.js'
 import { base64url, hmacSha256, sha256 } from '../src/util.js'
 
 const binding = {}
@@ -93,7 +94,7 @@ describe('parseUserAgent', () => {
 })
 
 describe('processBatch', () => {
-  const app: App = { id: 'app', name: 'A', writeKey: 'wk', schemaMode: 'permissive', retentionDays: 30, createdAt: 0, updatedAt: 0 }
+  const app: App = { id: 'app', name: 'A', writeKey: 'wk', schemaMode: 'permissive', retentionDays: 30, sampling: DEFAULT_SAMPLING, createdAt: 0, updatedAt: 0 }
   const info = { userAgent: null, country: 'FR', region: 'IDF', acceptLanguage: 'fr-FR,fr;q=0.9', receivedAt: 1_000_000_000_000 }
 
   it('corrects client clock skew using sentAt', () => {
@@ -176,5 +177,48 @@ describe('prepareErrorProperties', () => {
     expect((out.stack as string).length).toBe(6000)
     expect(out).toMatchObject({ type: 'Error', message: 'boom' })
     expect(out.$fingerprint).toMatch(/^[0-9a-f]{8}$/)
+  })
+})
+
+describe('sampling', () => {
+  const cfg = (c: Partial<SamplingConfig>): SamplingConfig => ({ mode: 'sampled', strategy: 'user', rate: 0.1, overrides: [], ...c })
+  const ev = (i: number, user = `u${i}`, name = 'view') => ({ name, id: `e${i}`, distinctId: user })
+
+  it('hashes uniformly', () => {
+    let below = 0
+    for (let i = 0; i < 20_000; i++) if (unitHash(`k${i}`) < 0.25) below++
+    expect(below / 20_000).toBeGreaterThan(0.23)
+    expect(below / 20_000).toBeLessThan(0.27)
+  })
+
+  it('keeps everything in full mode', () => {
+    expect(decide({ ...cfg({}), mode: 'full' }, 'app', ev(1))).toEqual({ keep: true, weight: 1, userWeight: 1 })
+  })
+
+  it('user strategy keeps all events of a kept user and weights both counts', () => {
+    const c = cfg({ rate: 0.2 })
+    const kept = Array.from({ length: 5000 }, (_, i) => decide(c, 'app', ev(i))).filter((d) => d.keep)
+    expect(kept.length / 5000).toBeGreaterThan(0.17)
+    expect(kept.length / 5000).toBeLessThan(0.23)
+    expect(kept[0]).toEqual({ keep: true, weight: 5, userWeight: 5 })
+    // Same user, different events: same decision.
+    const user = Array.from({ length: 50 }, (_, i) => decide(c, 'app', ev(i, 'same-user')).keep)
+    expect(new Set(user).size).toBe(1)
+  })
+
+  it('event strategy decides per event id, stable across retries, users unweighted', () => {
+    const c = cfg({ strategy: 'event', rate: 0.5 })
+    const decisions = Array.from({ length: 200 }, (_, i) => decide(c, 'app', ev(i, 'same-user')).keep)
+    expect(new Set(decisions).size).toBe(2)
+    expect(decide(c, 'app', ev(7))).toEqual(decide(c, 'app', ev(7)))
+    const kept = Array.from({ length: 200 }, (_, i) => decide(c, 'app', ev(i))).find((d) => d.keep)!
+    expect(kept).toEqual({ keep: true, weight: 2, userWeight: 1 })
+  })
+
+  it('applies per-event overrides and keeps $error in full by default', () => {
+    const c = cfg({ rate: 0.01, overrides: [{ event: 'purchase', rate: 1 }, { event: 'noise', rate: 0 }] })
+    expect(Array.from({ length: 100 }, (_, i) => decide(c, 'app', ev(i, `u${i}`, 'purchase')).keep).every(Boolean)).toBe(true)
+    expect(Array.from({ length: 100 }, (_, i) => decide(c, 'app', ev(i, `u${i}`, '$error')).keep).every(Boolean)).toBe(true)
+    expect(Array.from({ length: 100 }, (_, i) => decide(c, 'app', ev(i, `u${i}`, 'noise')).keep).some(Boolean)).toBe(false)
   })
 })

@@ -278,6 +278,26 @@ describe('HTTP API', () => {
     expect(bad.metric).toBe('events')
   })
 
+  it('applies sampling settings at ingest', async () => {
+    const app = await bootstrap(t)
+    const sampling = { mode: 'sampled', strategy: 'user', rate: 0.5, overrides: [{ event: 'purchase', rate: 1 }] }
+    const patched = await t.request(`/api/apps/${app.id}`, { method: 'PATCH', json: { sampling } })
+    expect(await patched.json()).toMatchObject({ app: { sampling } })
+    const bad = await t.request(`/api/apps/${app.id}`, { method: 'PATCH', json: { sampling: { ...sampling, rate: 0 } } })
+    expect(bad.status).toBe(400)
+
+    const events = Array.from({ length: 99 }, (_, i) => ({ id: `v${i}`, name: 'view', anonymousId: `u${i}` }))
+    events.push({ id: 'p1', name: 'purchase', anonymousId: 'u1' })
+    const body = (await (await t.request('/v1/batch', { method: 'POST', headers: { 'x-write-key': app.writeKey }, json: { events } })).json()) as IngestResponse
+    expect(body.accepted + body.sampled).toBe(100)
+    expect(body.sampled).toBeGreaterThan(30)
+    expect(body.sampled).toBeLessThan(70)
+    const top = (await (await t.request(`/api/apps/${app.id}/top?groupBy=name`)).json()) as { rows: { value: string; events: number }[] }
+    // Estimates scale kept events back up; purchase is kept in full.
+    expect(top.rows.find((r) => r.value === 'purchase')!.events).toBe(1)
+    expect(top.rows.find((r) => r.value === 'view')!.events).toBe((body.accepted - 1) * 2)
+  })
+
   it('rotating the key invalidates the old one', async () => {
     const app = await bootstrap(t)
     const send = (key: string) =>

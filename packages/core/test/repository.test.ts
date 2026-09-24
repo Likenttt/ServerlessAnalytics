@@ -27,6 +27,8 @@ function row(appId: string, overrides: Partial<EventRow> = {}): EventRow {
     locale: 'en-US',
     channel: null,
     region: null,
+    weight: 1,
+    user_weight: 1,
     properties: {},
     ...overrides,
   }
@@ -208,6 +210,23 @@ describe.each(DIALECTS)('Repository on %s', (_, open) => {
     expect(res.groups.find((g) => g.key === 'ios')!.steps.map((s) => s.users)).toEqual([2, 2, 1])
     expect(res.groups.find((g) => g.key === 'android')!.steps.map((s) => s.users)).toEqual([1, 0, 0])
     expect(res.truncated).toBe(false)
+  })
+
+  it('estimates full-volume counts from sampled rows', async () => {
+    // 10% user sampling: each stored row stands for 10 events and each user for 10 users.
+    await repo.insertEvents([
+      row(appId, { distinct_id: 'a', weight: 10, user_weight: 10, properties: { amount: 2 } }),
+      row(appId, { distinct_id: 'a', weight: 10, user_weight: 10, properties: { amount: 4 } }),
+      row(appId, { distinct_id: 'b', weight: 10, user_weight: 10, properties: { amount: 6 } }),
+    ])
+    const range = trailingRange(NOW, 24, 'hour', 0)
+    const o = await repo.overview(appId, range)
+    expect(o.totals).toEqual({ events: 30, users: 20 })
+    const q = (metric: string) => repo.insights(appId, { range, event: null, metric: metric as never, groupBy: null, filters: [], limit: 5 })
+    expect((await q('sum:amount')).series[0]!.total).toBe(120)
+    expect((await q('avg:amount')).series[0]!.total).toBe(4)
+    expect((await q('per_user')).series[0]!.total).toBe(1.5)
+    expect((await repo.top(appId, range, 'name', 5)).rows[0]).toMatchObject({ events: 30, users: 20 })
   })
 
   it('lists apps with a 7-day sparkline', async () => {
