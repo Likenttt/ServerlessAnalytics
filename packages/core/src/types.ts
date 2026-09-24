@@ -63,7 +63,11 @@ export type Dimension = (typeof DIMENSIONS)[number]
 /** A breakdown/filter target: a built-in dimension or `prop:<key>`. */
 export type GroupBy = Dimension | `prop:${string}`
 
-export type Metric = 'events' | 'users'
+/**
+ * events: count · users: unique users · per_user: events per user ·
+ * sum:<prop> / avg:<prop>: numeric property (e.g. revenue, duration)
+ */
+export type Metric = 'events' | 'users' | 'per_user' | `sum:${string}` | `avg:${string}`
 export type Interval = 'hour' | 'day'
 
 export interface TimeRange {
@@ -86,6 +90,34 @@ export interface OverviewResponse {
 export interface TopResponse {
   groupBy: GroupBy
   rows: { value: string | null; events: number; users: number }[]
+}
+
+export interface ActiveUsers {
+  /** Unique users in the trailing 24 hours / 7 days / 30 days. */
+  dau: number
+  wau: number
+  mau: number
+}
+
+export interface FunnelStep {
+  name: string
+  users: number
+  /** Share of users who started the funnel. */
+  conversion: number
+  /** Share of users from the previous step. */
+  stepConversion: number
+  /** Median time from the previous step, ms (null for the first step). */
+  medianTimeMs: number | null
+}
+
+export interface FunnelResponse {
+  range: TimeRange
+  windowMs: number
+  steps: FunnelStep[]
+  /** Per-group results when a breakdown is requested (top groups by entrants). */
+  groups: { key: string | null; steps: FunnelStep[] }[]
+  /** True when the per-user scan hit its row limit and results are sampled. */
+  truncated: boolean
 }
 
 export interface InsightsSeries {

@@ -14,6 +14,8 @@ export interface SqlDialect {
   bucket(intervalMs: number, offsetMs: number): RawBuilder<number>
   /** A property value as text (NULL when missing). */
   propText(key: string): RawBuilder<string | null>
+  /** A numeric property value (NULL when missing or not a number). */
+  propNumber(key: string): RawBuilder<number | null>
   /** Insert rows, ignoring duplicate (app_id, id). Returns rows inserted. */
   insertEvents(db: Kysely<Database>, rows: EventRow[]): Promise<number>
   /** Parse the `properties` column as returned by the driver. */
@@ -47,6 +49,10 @@ export const sqliteDialect: SqlDialect = {
     return sql<string | null>`(CASE json_type(properties, ${path})
       WHEN 'true' THEN 'true' WHEN 'false' THEN 'false' WHEN 'null' THEN NULL
       ELSE CAST(json_extract(properties, ${path}) AS TEXT) END)`
+  },
+  propNumber(key) {
+    const path = `$."${key}"`
+    return sql<number | null>`(CASE WHEN json_type(properties, ${path}) IN ('integer', 'real') THEN json_extract(properties, ${path}) END)`
   },
   async insertEvents(db, rows) {
     if (rows.length === 0) return 0
@@ -86,6 +92,8 @@ export const postgresDialect: SqlDialect = {
   name: 'postgres',
   bucket: (interval, offset) => sql<number>`CAST(FLOOR((ts + ${safeInt(offset)})::numeric / ${safeInt(interval)}) AS BIGINT)`,
   propText: (key) => sql<string | null>`(properties ->> ${key})`,
+  propNumber: (key) =>
+    sql<number | null>`(CASE WHEN jsonb_typeof(properties -> ${key}) = 'number' THEN (properties ->> ${key})::float8 END)`,
   async insertEvents(db, rows) {
     if (rows.length === 0) return 0
     const recordType = sql.raw(EVENT_COLUMNS.map((c) => `${c} ${PG_RECORD_TYPES[c]}`).join(', '))
