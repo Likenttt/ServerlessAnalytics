@@ -1,0 +1,7 @@
+bin/
+gen/
+*.prg
+*.iq
+*.der
+*.pem
+.vscode/
