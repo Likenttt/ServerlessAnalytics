@@ -7,6 +7,7 @@
 | **Endpoint** | 部署地址，例如 `https://analytics.example.com` | 客户端配置 | — | 否 |
 | **Write key**（`wk_…`） | 看板 → App → Settings → Write key | 客户端（App / 网页 / 服务端） | **只能写入**该 App 的事件 | 否，可以打包进客户端；泄露后可在看板一键轮换 |
 | **ADMIN_API_TOKEN**（可选） | 部署时自己生成（≥ 24 位随机串），设为环境变量 / Secret | 只放在你自己的服务端（BI、报表、脚本） | 通过 `/api/*` **读取和管理**所有数据 | **是**，等同管理员密码 |
+| **个人访问令牌**（`sa_pat_…`） | `sa login` 在浏览器中批准后自动生成；也可以在看板 Settings → Access tokens 中手动创建 | CLI（本地配置文件）/ CI（`SA_TOKEN`） | 通过 `/api/*` 读取和管理所有数据 | **是**，可随时吊销 |
 | ADMIN_PASSWORD | 部署时设置 | 只给看板使用者 | 登录看板 | **是** |
 
 一个项目（一个客户端或一组相关客户端）对应看板里的一个 **App**。同一产品的 iOS、Android、Web 可以共用一个 App，用 `platform` 区分；也可以分开建多个 App。
@@ -49,7 +50,11 @@ analytics.reset()                                   // 退出登录
 
 发送名为 `$error` 的事件即可，属性为 `type`、`message`、`stack`，可选 `fatal`、`handled` 以及任意自定义字段。服务端会按「类型 + 规范化后的消息 + 首个堆栈帧」自动归类，结果在看板的 **Errors** 页查看。`$` 开头的内置事件在 strict 模式下也不需要事先定义。
 
-## 2. 读取数据（读）
+## 2. 用 CLI 或 Agent 管理
+
+推荐使用 [`serverless-analytics-cli`](../packages/cli/README.md)：执行 `sa login` 后在网页中授权，之后接入（`apps create`、`snippet`）、配置（`events define`、`sampling set`）、查询（`query …`）都可以在命令行完成。Agent 使用 [`SKILL.md`](../packages/cli/SKILL.md) 即可。
+
+## 3. 读取数据（HTTP API）
 
 在部署中设置 `ADMIN_API_TOKEN` 后，其他服务可以直接调用看板使用的同一套 API：
 
@@ -81,7 +86,7 @@ curl -H "$T" "$B/api/apps/<appId>/events?limit=100&name=purchase"              #
 
 返回的类型定义见 [`packages/core/src/types.ts`](../packages/core/src/types.ts)。这是内部 API，目前还没有版本号承诺，升级前请查看变更记录。
 
-## 3. 常见分析怎么做
+## 4. 常见分析怎么做
 
 | 需求 | 看板位置 | 做法 |
 | --- | --- | --- |

@@ -33,6 +33,9 @@
 | SDK | Web / Electron / Node SDK（渠道识别、错误捕获） | ✅ 已完成 |
 | SDK | iOS（Swift）/ Android（Kotlin）原生 SDK | 🗓️ 计划中（目前可以直接调用 HTTP 接口） |
 | 访问 | 单管理员登录、`ADMIN_API_TOKEN` 读取 API | ✅ 已完成 |
+| 访问 | 个人访问令牌：看板中创建和吊销，记录最后使用时间 | ✅ 已完成 |
+| CLI / Agent | `serverless-analytics-cli`（`sa`）：网页授权登录，覆盖接入、配置和查询；自动输出 JSON；附带 agent skill | ✅ 已完成 |
+| CLI / Agent | MCP server（把 CLI 的能力以工具的形式提供给 agent） | 🗓️ 计划中 |
 | 访问 | 多用户、角色权限、SSO | 🗓️ 计划中 |
 | 规模 | 按小时 / 天的预聚合；Analytics Engine / ClickHouse 适配 | 🗓️ 计划中 |
 | 工程 | CI（类型检查、双数据库测试、构建、打包） | ✅ 已完成 |
@@ -111,8 +114,21 @@ analytics.track('purchase', { plan: 'pro', amount: 29 })
 
 完整协议（Android / iOS 等原生客户端对接）见 [HTTP API](docs/HTTP_API.md)。
 
+### 用 CLI 或 Agent 管理
+
+```sh
+npm install -g serverless-analytics-cli
+sa login --endpoint https://<your-deployment>          # 在浏览器中确认授权
+sa apps create "iOS App" && sa snippet "iOS App" --lang swift
+sa events define "iOS App" purchase --prop plan:string:required --prop amount:number
+sa query trend "iOS App" --metric users --by channel --range 30d
+```
+
+把 [`packages/cli/SKILL.md`](packages/cli/SKILL.md) 放到 agent 的 skills 目录后，agent 就能用自然语言完成接入、配置和查询。
+
 ## 文档
 
+- [CLI 与 Agent](packages/cli/README.md)：`sa login` 网页授权、命令参考；[`SKILL.md`](packages/cli/SKILL.md) 可直接给 agent 使用
 - [接入指南](docs/INTEGRATION.md)：凭据说明、各端上报方式、用 API 读取数据、常见分析场景
 - [生产就绪评估](docs/PRODUCTION.md)
 - [架构设计](docs/ARCHITECTURE.md)：技术选型、请求流、存储与方言层、队列语义、缓存、安全
