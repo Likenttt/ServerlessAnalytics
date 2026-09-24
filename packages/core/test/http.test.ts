@@ -79,6 +79,19 @@ describe('HTTP API', () => {
     expect(await (await t.request('/api/auth/session')).json()).toEqual({ authenticated: true })
   })
 
+  it('accepts ADMIN_API_TOKEN as a Bearer token', async () => {
+    const token = 'tok_' + 'x'.repeat(30)
+    const api = setup({ ADMIN_API_TOKEN: token })
+    await bootstrap(api)
+    const fresh = setup({ ADMIN_API_TOKEN: token })
+    expect((await fresh.request('/api/apps')).status).toBe(401)
+    expect((await fresh.request('/api/apps', { headers: { authorization: 'Bearer wrong' } })).status).toBe(401)
+    expect((await fresh.request('/api/system', { headers: { authorization: `Bearer ${token}` } })).status).toBe(200)
+    await expect(setup({ ADMIN_API_TOKEN: 'short' }).request('/api/auth/session').then((r) => r.json())).resolves.toMatchObject({
+      configError: expect.stringContaining('ADMIN_API_TOKEN'),
+    })
+  })
+
   it('rejects cross-origin mutations', async () => {
     await bootstrap(t)
     const res = await t.request('/api/apps', { method: 'POST', json: { name: 'x' }, headers: { origin: 'https://evil.test' } })

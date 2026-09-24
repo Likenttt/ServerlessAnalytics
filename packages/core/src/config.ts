@@ -27,7 +27,8 @@ export interface Config {
         /** Public base URL QStash delivers to. Falls back to the request origin. */
         publicUrl: string | null
       }
-  auth: { adminPassword: string; sessionSecret: string }
+  /** apiToken: optional Bearer token for programmatic access to /api (full admin rights). */
+  auth: { adminPassword: string; sessionSecret: string; apiToken: string | null }
   ingest: { maxBatchSize: number; maxBodyBytes: number }
   cronSecret: string | null
 }
@@ -143,6 +144,9 @@ export function resolveConfig(env: Env): Config {
   if (!adminPassword) problems.push('ADMIN_PASSWORD is required')
   else if (adminPassword.length < 8) problems.push('ADMIN_PASSWORD must be at least 8 characters')
 
+  const apiToken = str(env, 'ADMIN_API_TOKEN') ?? null
+  if (apiToken !== null && apiToken.length < 24) problems.push('ADMIN_API_TOKEN must be at least 24 characters')
+
   const ingest = {
     maxBatchSize: int(problems, 'MAX_BATCH_SIZE', str(env, 'MAX_BATCH_SIZE'), 100, 1, 1000),
     maxBodyBytes: int(problems, 'MAX_BODY_BYTES', str(env, 'MAX_BODY_BYTES'), 1_000_000, 1024, 10_000_000),
@@ -154,7 +158,7 @@ export function resolveConfig(env: Env): Config {
     database,
     kv,
     queue,
-    auth: { adminPassword: adminPassword!, sessionSecret: str(env, 'SESSION_SECRET') ?? adminPassword! },
+    auth: { adminPassword: adminPassword!, sessionSecret: str(env, 'SESSION_SECRET') ?? adminPassword!, apiToken },
     ingest,
     cronSecret: str(env, 'CRON_SECRET') ?? null,
   }
