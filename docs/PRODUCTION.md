@@ -4,14 +4,14 @@
 
 ## 已具备
 
-- **数据可靠性**：Cloudflare 上默认走队列（请求只负责入队，由消费者批量写库，失败会重试，最终进入死信队列）；事件 id 幂等去重、客户端时钟偏差修正；可选 Cloudflare Queues（重试 + 死信队列）或 QStash。
+- **数据可靠性**：Cloudflare 上默认走队列（请求只负责入队，由消费者批量写库，失败会重试，最终进入死信队列）；事件 id 幂等去重、客户端时钟偏差修正；也可以改为直接写库，或在 Vercel 上使用 QStash。
 - **安全**：
   - write key 只能写入，泄露后可以一键轮换；
   - 看板使用 HMAC 签名的会话 Cookie（HttpOnly、Secure、SameSite），修改类请求校验 Origin 防 CSRF，登录失败有限流；
   - 可选 `ADMIN_API_TOKEN` 供服务端读取；
   - 不存储 IP 地址。
 - **运维**：配置错误会在登录页直接列出；迁移可重复执行；每日自动清理超过保留期的数据；Cloudflare observability 已开启。
-- **质量**：60 个核心测试同时在 SQLite（D1）和 Postgres（PGlite）上运行，另有 SDK 测试；CI 覆盖类型检查、测试、构建、Worker 打包和 Vercel 产物；dev 环境已实际部署并验证。
+- **质量**：68 个核心测试同时在 SQLite（D1）和 Postgres（PGlite）上运行，另有 SDK 测试；CI 覆盖类型检查、测试、构建、Worker 打包和 Vercel 产物；dev 环境已实际部署并验证。
 
 ## 上线前建议
 

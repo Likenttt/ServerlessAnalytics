@@ -8,17 +8,34 @@
 
 ![Overview](docs/images/02-overview-light.png)
 
-## 特性
+## 功能与路线图
 
-- **自定义事件（Tracking plan）**：在看板中定义事件及其属性（类型、是否必填）。*Permissive* 模式下接收所有事件、定义用于文档；*Strict* 模式下拒绝未定义或不合规的事件。已上报但未定义的事件会列出来，可一键定义（自动推断属性类型）。
-- **多 App**：一个部署管理多个 App，每个 App 有独立的 write key、事件定义、数据保留期。
-- **多维分析**：按平台、**渠道**、**国家 / 地区**、系统、版本、设备或任意属性分组和筛选；指标支持事件数、去重用户、人均次数，以及任意数值属性的求和与平均值（例如收入、时长）。
-- **活跃与转化**：DAU / WAU / MAU 与粘性；**漏斗**（有序步骤、转化窗口、分组对比、步骤间耗时）用于衡量事件效果。
-- **轻量错误追踪**：`captureError()` 或 `$error` 事件，按类型、消息和堆栈自动归类，可查看趋势、影响用户数、版本分布与堆栈。
-- **Live**：实时事件流，便于调试埋点。
-- **存储可切换**：数据库 **Cloudflare D1** 或 **Postgres（Supabase / Neon / …）**；KV **Cloudflare KV** / **Upstash** / 内存；队列 **同步** / **后台** / **Cloudflare Queues** / **Upstash QStash**。
-- **可靠上报**：批量、gzip、幂等去重、时钟偏差修正、`sendBeacon`；自带 3.8 KB 的 Web SDK。
-- **Vercel 风格看板**：简洁、高效，支持明暗主题、键盘操作，筛选状态保存在 URL 里。
+| 分类 | 功能 | 状态 |
+| --- | --- | --- |
+| 部署 | Cloudflare Workers + D1 + KV，默认使用 Queues | ✅ 已完成（dev 环境已上线） |
+| 部署 | Vercel + Postgres / Supabase（Build Output API） | ✅ 已完成（尚未在 Vercel 上实际部署验证） |
+| 部署 | 自定义域名、GitHub Actions 部署 | ✅ 已完成 |
+| 上报 | 批量提交、gzip、幂等去重、时钟偏差修正、`sendBeacon` | ✅ 已完成 |
+| 上报 | 可配置队列：直接写库 / 后台写入 / Cloudflare Queues / QStash | ✅ 已完成 |
+| 上报 | 按 App 采样：全量或采样，按用户或按事件，按事件名设置采样率，按权重估算全量 | ✅ 已完成 |
+| 上报 | 上报限流（防刷量） | 🗓️ 计划中 |
+| 事件 | 自定义事件与属性定义，Permissive / Strict 两种校验模式，一键定义已上报的事件 | ✅ 已完成 |
+| 分析 | 按平台、渠道、国家、地区、系统、版本、设备或任意属性分组和筛选 | ✅ 已完成 |
+| 分析 | 指标：事件数、去重用户、人均次数、数值属性的求和与平均值 | ✅ 已完成 |
+| 分析 | DAU / WAU / MAU、粘性 | ✅ 已完成 |
+| 分析 | 漏斗（有序、转化窗口、分组对比、步骤耗时） | ✅ 已完成 |
+| 分析 | 留存（按周期的同期群） | 🗓️ 计划中 |
+| 分析 | 用户路径、单个用户的事件时间线 | 🗓️ 计划中 |
+| 分析 | 保存常用视图、看板组合 | 🗓️ 计划中 |
+| 错误 | `$error` 自动归类、趋势、影响用户数、版本分布、堆栈 | ✅ 已完成 |
+| 错误 | 错误告警（邮件 / Webhook） | 🗓️ 计划中 |
+| 错误 | Source map 还原堆栈 | 🗓️ 计划中 |
+| SDK | Web / Electron / Node SDK（渠道识别、错误捕获） | ✅ 已完成 |
+| SDK | iOS（Swift）/ Android（Kotlin）原生 SDK | 🗓️ 计划中（目前可以直接调用 HTTP 接口） |
+| 访问 | 单管理员登录、`ADMIN_API_TOKEN` 读取 API | ✅ 已完成 |
+| 访问 | 多用户、角色权限、SSO | 🗓️ 计划中 |
+| 规模 | 按小时 / 天的预聚合；Analytics Engine / ClickHouse 适配 | 🗓️ 计划中 |
+| 工程 | CI（类型检查、双数据库测试、构建、打包） | ✅ 已完成 |
 
 | Explore（暗色） | 事件定义 |
 | --- | --- |
@@ -51,7 +68,7 @@ npx wrangler secret put ADMIN_PASSWORD
 cd ../.. && pnpm deploy:cloudflare
 ```
 
-首次部署时会自动创建 D1 数据库和 KV 命名空间。部署后打开 Worker 地址，初始化数据库即可。启用 Cloudflare Queues 或改用 Postgres（Hyperdrive）请参考 [配置文档](docs/CONFIGURATION.md)。
+首次部署时会自动创建 D1 数据库和 KV 命名空间。默认使用 Cloudflare Queues，部署前先创建队列：`wrangler queues create serverless-analytics-events`，以及对应的 `-dlq` 死信队列。使用自定义域名时加上 `--domain analytics.example.com`。部署后打开站点，初始化数据库即可。改为直接写库或使用 Postgres（Hyperdrive）请参考 [配置文档](docs/CONFIGURATION.md)。
 
 ### Vercel（Postgres / Supabase）
 
