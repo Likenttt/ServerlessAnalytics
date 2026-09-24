@@ -9,6 +9,7 @@ import { AppsPage } from './pages/apps'
 import { DefinitionsPage } from './pages/definitions'
 import { ErrorDetailPage, ErrorsPage } from './pages/errors'
 import { ExplorePage } from './pages/explore'
+import { FunnelsPage } from './pages/funnels'
 import { LivePage } from './pages/live'
 import { LoginPage } from './pages/login'
 import { OverviewPage } from './pages/overview'
@@ -36,6 +37,9 @@ function AppRoutes() {
         </Route>
         <Route path="/apps/:appId/explore">
           <ExplorePage appId={appId} />
+        </Route>
+        <Route path="/apps/:appId/funnels">
+          <FunnelsPage appId={appId} />
         </Route>
         <Route path="/apps/:appId/errors">
           <ErrorsPage appId={appId} />
