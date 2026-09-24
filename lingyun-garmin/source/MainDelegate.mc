@@ -18,4 +18,14 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
     _view.turn(-1);
     return true;
   }
+
+  function onSelect() as Boolean {
+    openMainMenu();
+    return true;
+  }
+
+  function onMenu() as Boolean {
+    openMainMenu();
+    return true;
+  }
 }

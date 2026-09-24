@@ -1,3 +1,4 @@
+import Toybox.Attention;
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.WatchUi;
@@ -43,6 +44,25 @@ module Ui {
     return s(ids[i]);
   }
 
+  function trainName(i as Number) as String {
+    var ids = [
+      Rez.Strings.Train0,
+      Rez.Strings.Train1,
+      Rez.Strings.Train2,
+      Rez.Strings.Train3,
+    ];
+    return s(ids[i]);
+  }
+
+  // "体魄 · 今日 20/60": what a training feeds and today's capped progress.
+  function trainSub(g as GameState, i as Number) as String {
+    return Lang.format(s(Rez.Strings.TrainSub), [
+      attrName(i),
+      g.train[i],
+      Rules.TRAIN_CAP,
+    ]);
+  }
+
   // "少林 · 三流好手"; commoners have no sect yet.
   function title(g as GameState) as String {
     if (g.sect < 0) {
@@ -82,6 +102,12 @@ module Ui {
       Rules.PREREQ_STREAK,
       g.currentStreak(),
     ]);
+  }
+
+  function buzz(ms as Number) as Void {
+    if (Attention has :vibrate) {
+      Attention.vibrate([new Attention.VibeProfile(60, ms)]);
+    }
   }
 
   function center() as Number {

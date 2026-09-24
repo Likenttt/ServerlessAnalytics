@@ -78,4 +78,47 @@
   <string id="RecFloors">单日最多 $1$ 层</string>
   <string id="RecIm">单日强度 $1$ 分钟</string>
   <string id="RecTotal">累计 $1$ 步</string>
+
+  <!-- 菜单 -->
+  <string id="MenuTitle">修炼</string>
+  <string id="MenuBreak">突破</string>
+  <string id="MenuHelp">心法</string>
+  <string id="MenuHelpSub">玩法说明</string>
+  <string id="HelpBody">走路 长体魄\n爬楼 长轻功\n运动 长内力\n日课吐纳 养心境\n四项均衡 方可突破</string>
+
+  <!-- 修炼 -->
+  <string id="Train0">出拳</string>
+  <string id="Train1">腾跃</string>
+  <string id="Train2">站桩</string>
+  <string id="Train3">吐纳</string>
+  <string id="TrainSub">$1$ · 今日 $2$/$3$</string>
+  <string id="TrainHint0">手表随拳而动\n全力出拳</string>
+  <string id="TrainHint1">原地跳跃\n或开合跳</string>
+  <string id="TrainHint2">双臂前平举\n纹丝不动</string>
+  <string id="TrainHint3">吸气四秒 呼气六秒\n随光圈吐纳</string>
+  <string id="DurBurst">限时 30 秒</string>
+  <string id="DurStance">限时 60 秒</string>
+  <string id="DurBreath">六息 约一分钟</string>
+  <string id="TrialGoalCount">30 秒内 $1$ 次</string>
+  <string id="TrialGoalStill">静立 $1$ 秒</string>
+  <string id="TrialGoalBreath">吐纳 $1$ 息</string>
+  <string id="StartHint">按键开始</string>
+  <string id="BackHint">按键返回</string>
+  <string id="Steady">稳</string>
+  <string id="Shaky">晃</string>
+  <string id="Inhale">吸</string>
+  <string id="Exhale">呼</string>
+  <string id="SecFmt">$1$ 秒</string>
+  <string id="HeartFmt">心率 $1$</string>
+  <string id="CountFmt0">出拳 $1$ 次</string>
+  <string id="CountFmt1">腾跃 $1$ 次</string>
+  <string id="CountFmt2">静立 $1$ 秒</string>
+  <string id="CountFmt3">吐纳 $1$ 息</string>
+  <string id="Capped">今日此项已修满</string>
+  <string id="TrialOk">突破成功！</string>
+  <string id="TrialFail">功亏一篑</string>
+  <string id="RetryHint">稍作休整 再来一次</string>
+  <string id="NewRealmFmt">晋升 $1$</string>
+  <string id="JoinSect">拜入 $1$</string>
+  <string id="Soar">御风而行 天地任遨游</string>
 </strings>
