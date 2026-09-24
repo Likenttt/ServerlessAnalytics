@@ -2,7 +2,7 @@ import type { GroupBy } from '@serverless-analytics/core/types'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'wouter'
 import { TimeSeriesChart } from '../components/chart'
-import { FilterChips, RangeSelect, useRange } from '../components/filters'
+import { AddFilter, FilterChips, RangeSelect, useRange } from '../components/filters'
 import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, MinusIcon } from '../components/icons'
 import { Page } from '../components/layout'
 import { Quickstart } from '../components/quickstart'
@@ -168,6 +168,7 @@ export function OverviewPage({ appId }: { appId: string }) {
     <Page>
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <RangeSelect />
+        <AddFilter appId={appId} range={range} />
         <FilterChips />
       </div>
 

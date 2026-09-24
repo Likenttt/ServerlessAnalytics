@@ -27,14 +27,15 @@ function useWidth<T extends HTMLElement>() {
 }
 
 /** Round tick steps (1, 2, 5 × 10^n) for integer counts. */
-function ticksFor(max: number, target = 4): number[] {
+function ticksFor(max: number, integer: boolean, target = 4): number[] {
   if (max <= 0) return [0, 1]
   const raw = max / target
   const pow = 10 ** Math.floor(Math.log10(raw))
   const n = raw / pow
-  const step = Math.max(1, (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * pow)
+  const nice = (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * pow
+  const step = integer ? Math.max(1, nice) : nice
   const ticks: number[] = []
-  for (let v = 0; v < max + step; v += step) ticks.push(v)
+  for (let i = 0; i * step < max + step; i++) ticks.push(Number((i * step).toPrecision(12)))
   return ticks
 }
 
@@ -51,6 +52,8 @@ export function TimeSeriesChart({
   area = series.length === 1,
   loading = false,
   partialLast = false,
+  integer = true,
+  format = formatNumber,
   label,
 }: {
   buckets: number[]
@@ -61,6 +64,9 @@ export function TimeSeriesChart({
   loading?: boolean
   /** The last bucket is still in progress: draw its segment dashed. */
   partialLast?: boolean
+  /** Counts: integer axis ticks. Set false for sums, averages and ratios. */
+  integer?: boolean
+  format?: (value: number) => string
   label: string
 }) {
   const [containerRef, width] = useWidth<HTMLDivElement>()
@@ -68,9 +74,9 @@ export function TimeSeriesChart({
   const n = buckets.length
 
   const max = Math.max(0, ...series.flatMap((s) => s.points))
-  const ticks = useMemo(() => ticksFor(max), [max])
+  const ticks = useMemo(() => ticksFor(max, integer), [max, integer])
   const yMax = ticks[ticks.length - 1] ?? 1
-  const tickLabels = ticks.map(formatCompact)
+  const tickLabels = ticks.map((t) => (integer || t >= 1000 ? formatCompact(t) : String(t)))
   const margin = { top: 12, right: 16, bottom: 28, left: Math.max(...tickLabels.map((t) => t.length)) * 7 + 16 }
   const plotW = Math.max(0, width - margin.left - margin.right)
   const plotH = height - margin.top - margin.bottom
@@ -183,7 +189,7 @@ export function TimeSeriesChart({
               .map((s) => (
                 <div key={s.key} className="flex items-center gap-2">
                   <span className="h-0.5 w-3 shrink-0 rounded-full" style={{ background: s.color }} />
-                  <span className="font-semibold tabular">{formatNumber(s.points[active] ?? 0)}</span>
+                  <span className="font-semibold tabular">{format(s.points[active] ?? 0)}</span>
                   <span className="max-w-48 truncate text-muted">{s.label}</span>
                 </div>
               ))}

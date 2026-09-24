@@ -1,13 +1,13 @@
-import { DIMENSIONS, type GroupBy, type InsightsSeries } from '@serverless-analytics/core/types'
+import type { GroupBy, InsightsSeries } from '@serverless-analytics/core/types'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useMemo, useRef, useState } from 'react'
 import { TimeSeriesChart, type ChartSeries } from '../components/chart'
-import { FilterChips, RangeSelect, useRange } from '../components/filters'
+import { AddFilter, FilterChips, GroupByOptions, RangeSelect, useRange } from '../components/filters'
 import { FilterIcon } from '../components/icons'
 import { Page } from '../components/layout'
-import { Card, EmptyState, IconButton, Segmented, Select, Skeleton, cx } from '../components/ui'
+import { Card, EmptyState, IconButton, Select, Skeleton, cx } from '../components/ui'
 import { api } from '../lib/api'
-import { DIMENSION_LABELS, formatNumber, formatPercent, formatValue, groupByLabel } from '../lib/format'
+import { formatMetric, formatPercent, formatValue, groupByLabel, metricLabel } from '../lib/format'
 import { useFilters, useSearchParams } from '../lib/url'
 
 /** Keeps a series' color tied to its key across refetches and filter changes. */
@@ -33,7 +33,8 @@ export function ExplorePage({ appId }: { appId: string }) {
   const { params, set } = useSearchParams()
   const { raw: f, add } = useFilters()
   const event = params.get('event') ?? ''
-  const metric = params.get('metric') === 'users' ? 'users' : 'events'
+  const metric = params.get('metric') || 'events'
+  const isCount = metric === 'events' || metric === 'users'
   const groupBy = (params.get('groupBy') ?? '') as GroupBy | ''
   const interval = params.get('interval') ?? ''
   const [hidden, setHidden] = useState<Set<string>>(new Set())
@@ -83,35 +84,35 @@ export function ExplorePage({ appId }: { appId: string }) {
             </option>
           ))}
         </Select>
-        <Segmented
-          label="Metric"
-          value={metric}
-          onChange={(m) => set('metric', m === 'events' ? null : m)}
-          options={[
-            { value: 'events', label: 'Events' },
-            { value: 'users', label: 'Users' },
-          ]}
-        />
-        <Select aria-label="Breakdown" value={groupBy} onChange={(e) => set('groupBy', e.target.value || null)}>
-          <option value="">No breakdown</option>
-          <optgroup label="Dimensions">
-            {DIMENSIONS.filter((d) => d !== 'name' || !event).map((d) => (
-              <option key={d} value={d}>
-                By {DIMENSION_LABELS[d]?.toLowerCase()}
-              </option>
-            ))}
-          </optgroup>
+        <Select aria-label="Metric" value={metric} onChange={(e) => set('metric', e.target.value === 'events' ? null : e.target.value)}>
+          <option value="events">Event count</option>
+          <option value="users">Unique users</option>
+          <option value="per_user">Events per user</option>
           {(properties.data?.keys.length ?? 0) > 0 && (
-            <optgroup label="Properties">
-              {properties.data!.keys.map((k) => (
-                <option key={k} value={`prop:${k}`}>
-                  By {k}
-                </option>
-              ))}
-            </optgroup>
+            <>
+              <optgroup label="Sum of property">
+                {properties.data!.keys.map((k) => (
+                  <option key={`sum:${k}`} value={`sum:${k}`}>
+                    Sum of {k}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Average of property">
+                {properties.data!.keys.map((k) => (
+                  <option key={`avg:${k}`} value={`avg:${k}`}>
+                    Average {k}
+                  </option>
+                ))}
+              </optgroup>
+            </>
           )}
         </Select>
+        <Select aria-label="Breakdown" value={groupBy} onChange={(e) => set('groupBy', e.target.value || null)}>
+          <option value="">No breakdown</option>
+          <GroupByOptions properties={properties.data?.keys ?? []} exclude={event ? ['name'] : []} />
+        </Select>
         <RangeSelect />
+        <AddFilter appId={appId} range={range} event={event} />
         {hourlyAllowed && range !== '24h' && (
           <Select aria-label="Interval" value={interval || 'day'} onChange={(e) => set('interval', e.target.value === 'day' ? null : e.target.value)}>
             <option value="day">Daily</option>
@@ -126,7 +127,7 @@ export function ExplorePage({ appId }: { appId: string }) {
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-5 py-4">
           <h1 className="mr-auto text-sm font-medium">
-            {metric === 'users' ? 'Unique users' : 'Events'}
+            {metricLabel(metric)}
             {event ? ` · ${event}` : ''}
             {groupBy ? ` by ${groupByLabel(groupBy)}` : ''}
           </h1>
@@ -161,6 +162,8 @@ export function ExplorePage({ appId }: { appId: string }) {
               interval={data.range.interval}
               series={visible}
               area={visible.length === 1}
+              integer={isCount}
+              format={(n) => formatMetric(n, metric)}
               loading={insights.isFetching && insights.isPlaceholderData}
               partialLast={data.range.to > Date.now()}
             />
@@ -173,7 +176,7 @@ export function ExplorePage({ appId }: { appId: string }) {
               <thead>
                 <tr className="text-left text-xs text-muted">
                   <th className="h-10 px-5 font-medium">{groupBy ? groupByLabel(groupBy) : 'Series'}</th>
-                  <th className="h-10 px-5 text-right font-medium">{metric === 'users' ? 'Users' : 'Events'}</th>
+                  <th className="h-10 px-5 text-right font-medium">{metricLabel(metric)}</th>
                   {metric === 'events' && <th className="h-10 px-5 text-right font-medium">Share</th>}
                   <th className="h-10 w-12 px-3" />
                 </tr>
@@ -189,7 +192,7 @@ export function ExplorePage({ appId }: { appId: string }) {
                           <span className={cx('truncate', s.key === null && 'text-muted italic')}>{chart.label}</span>
                         </span>
                       </td>
-                      <td className="px-5 text-right font-medium tabular">{formatNumber(s.total)}</td>
+                      <td className="px-5 text-right font-medium tabular">{formatMetric(s.total, metric)}</td>
                       {metric === 'events' && <td className="px-5 text-right text-muted tabular">{sum ? formatPercent(s.total / sum) : '—'}</td>}
                       <td className="px-3 text-right">
                         {data.groupBy && s.key !== null && (
