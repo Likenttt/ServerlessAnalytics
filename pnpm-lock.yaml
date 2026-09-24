@@ -103,6 +103,9 @@ importers:
       '@serverless-analytics/core':
         specifier: workspace:*
         version: link:../core
+      '@serverless-analytics/mcp':
+        specifier: workspace:*
+        version: link:../mcp
       '@types/node':
         specifier: ^26.6.2
         version: 26.6.2

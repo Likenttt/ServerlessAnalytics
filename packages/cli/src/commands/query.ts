@@ -8,6 +8,7 @@ import type {
   OverviewResponse,
   TopResponse,
 } from '@serverless-analytics/core/types'
+import { SNIPPET_LANGS, integrationSnippet, type SnippetLang } from '@serverless-analytics/mcp'
 import { UsageError, parseKeyValue } from '../args.js'
 import { qs, type QueryValue } from '../client.js'
 import type { Context } from '../context.js'
@@ -212,50 +213,8 @@ export async function track(ctx: Context) {
 /** sa snippet <app> [--lang js|html|curl|kotlin|swift] — integration code with this app's endpoint and key. */
 export async function snippet(ctx: Context) {
   const { client, app } = await target(ctx)
-  const lang = ctx.args.get('lang') ?? 'js'
-  const origin = client.endpoint
-  const key = app.writeKey
-  const snippets: Record<string, string> = {
-    js: `// npm install @serverless-analytics/sdk
-import { createAnalytics } from '@serverless-analytics/sdk'
-
-export const analytics = createAnalytics({
-  endpoint: '${origin}',
-  writeKey: '${key}',
-  captureErrors: true,
-})
-
-analytics.identify(user.id)
-analytics.track('signup', { method: 'email' })`,
-    html: `<script src="${origin}/sdk/analytics.global.js"></script>
-<script>
-  const analytics = ServerlessAnalytics.createAnalytics({ endpoint: '${origin}', writeKey: '${key}', autoPageviews: true, captureErrors: true })
-</script>`,
-    curl: `curl -X POST ${origin}/v1/batch \\
-  -H "Authorization: Bearer ${key}" -H "Content-Type: application/json" \\
-  -d '{"context":{"platform":"server"},"events":[{"id":"'$(uuidgen)'","name":"signup","anonymousId":"device-123","properties":{"method":"email"}}]}'`,
-    kotlin: `// Batch events locally and POST them; keep the same id when retrying.
-val body = JSONObject(mapOf(
-  "context" to mapOf("platform" to "android", "appVersion" to BuildConfig.VERSION_NAME, "channel" to BuildConfig.FLAVOR),
-  "events" to listOf(mapOf("id" to UUID.randomUUID().toString(), "name" to "signup", "anonymousId" to deviceId,
-    "timestamp" to System.currentTimeMillis(), "properties" to mapOf("method" to "email"))),
-)).toString()
-val request = Request.Builder().url("${origin}/v1/batch")
-  .header("Authorization", "Bearer ${key}")
-  .post(body.toRequestBody("application/json".toMediaType())).build()
-client.newCall(request).enqueue(callback)`,
-    swift: `var request = URLRequest(url: URL(string: "${origin}/v1/batch")!)
-request.httpMethod = "POST"
-request.setValue("Bearer ${key}", forHTTPHeaderField: "Authorization")
-request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-request.httpBody = try JSONSerialization.data(withJSONObject: [
-  "context": ["platform": "ios", "appVersion": appVersion, "channel": "appstore"],
-  "events": [["id": UUID().uuidString, "name": "signup", "anonymousId": deviceId,
-              "timestamp": Int(Date().timeIntervalSince1970 * 1000), "properties": ["method": "email"]]],
-])
-URLSession.shared.dataTask(with: request).resume()`,
-  }
-  const code = snippets[lang]
-  if (!code) throw new UsageError(`--lang must be one of ${Object.keys(snippets).join(', ')}`)
-  ctx.out.result({ app: { id: app.id, name: app.name }, endpoint: origin, writeKey: key, lang, code }, () => code)
+  const lang = (ctx.args.get('lang') ?? 'js') as SnippetLang
+  if (!SNIPPET_LANGS.includes(lang)) throw new UsageError(`--lang must be one of ${SNIPPET_LANGS.join(', ')}`)
+  const code = integrationSnippet(lang, client.endpoint, app.writeKey)
+  ctx.out.result({ app: { id: app.id, name: app.name }, endpoint: client.endpoint, writeKey: app.writeKey, lang, code }, () => code)
 }
