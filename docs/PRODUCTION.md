@@ -4,7 +4,7 @@
 
 ## 已具备
 
-- **数据可靠性**：请求内同步写入（默认）、事件 id 幂等去重、客户端时钟偏差修正；可选 Cloudflare Queues（重试 + 死信队列）或 QStash。
+- **数据可靠性**：Cloudflare 上默认走队列（请求只负责入队，由消费者批量写库，失败会重试，最终进入死信队列）；事件 id 幂等去重、客户端时钟偏差修正；可选 Cloudflare Queues（重试 + 死信队列）或 QStash。
 - **安全**：
   - write key 只能写入，泄露后可以一键轮换；
   - 看板使用 HMAC 签名的会话 Cookie（HttpOnly、Secure、SameSite），修改类请求校验 Origin 防 CSRF，登录失败有限流；
@@ -20,7 +20,7 @@
 | 高 | **上报限流** | write key 是公开的，可能被刷量。可以在 Cloudflare WAF 为 `/v1/*` 配置 Rate Limiting 规则（按 IP 或 write key），或在 Worker 中接入 Rate Limiting binding。 |
 | 高 | **正式环境使用独立资源** | 正式环境使用单独的 Worker 名和 D1 数据库名（在 `wrangler.jsonc` 中修改 `name` 与 `database_name`），不要和 dev 共用。 |
 | 高 | **强密码与 API token** | `ADMIN_PASSWORD` 使用随机生成的长密码；`ADMIN_API_TOKEN` 只放在服务端。 |
-| 中 | **容量与查询成本** | 目前直接在原始事件表上聚合。事件量大（例如每月数千万）时，需要预聚合表或列式存储（Analytics Engine / ClickHouse）。同时设置合理的保留期。 |
+| 中 | **容量与查询成本** | 流量很大时，可以在 App 设置中开启**采样**（推荐按用户采样）。目前直接在原始事件表上聚合。事件量大（例如每月数千万）时，需要预聚合表或列式存储（Analytics Engine / ClickHouse）。同时设置合理的保留期。 |
 | 中 | **备份** | D1 自带 30 天 Time Travel，可恢复到任意时间点；Postgres 依赖服务商的备份。建议定期导出重要数据。 |
 | 中 | **监控告警** | 在 Cloudflare 中为 Worker 错误率配置告警；关注 D1 的读写用量。 |
 | 低 | **多用户 / 权限** | 目前只有一个管理员，没有审计日志和 2FA。团队协作需要接入 SSO 或 Cloudflare Access（可以直接用 Access 保护看板路径）。 |

@@ -55,14 +55,27 @@ KV 只做缓存（write key → App、事件定义）和登录限流计数，数
 
 | `QUEUE_DRIVER` | 语义 | 需要 | 适用场景 |
 | --- | --- | --- | --- |
-| `direct`（默认） | 请求内同步写库，写成功才返回 200 | — | 大多数场景；最简单、不丢数据 |
+| `direct`（未配置队列时的默认值） | 请求内同步写库，写成功才返回 200 | — | 小流量；Vercel 的默认方式 |
 | `background` | 先返回，再用 `waitUntil` 写库 | — | 追求最低延迟，可接受极少量丢失 |
-| `cloudflare` | Cloudflare Queues，消费者按批写库（带重试 + 死信队列） | 生产者绑定 `EVENTS_QUEUE` + 消费者配置 | Cloudflare 上的高吞吐；把大量小写入合并成少量大批次，显著降低 D1 写压力 |
+| `cloudflare`（`wrangler.jsonc` 的默认值） | Cloudflare Queues，消费者按批写库（带重试 + 死信队列） | 生产者绑定 `EVENTS_QUEUE` + 消费者配置 | Cloudflare 上的高吞吐；把大量小写入合并成少量大批次，显著降低 D1 写压力 |
 | `qstash` | Upstash QStash，QStash 回调 `/api/queue/qstash`（签名校验、自动重试） | `QSTASH_TOKEN`、`QSTASH_CURRENT_SIGNING_KEY`、`QSTASH_NEXT_SIGNING_KEY`；可选 `QSTASH_URL`（区域地址，默认 `https://qstash.upstash.io`） | Vercel 等没有原生队列的平台 |
 
 所有队列路径都是幂等的：事件按 `(app_id, id)` 去重，重投递不会重复计数。
 
 ---
+
+### 队列费用（Cloudflare Queues）
+
+按官方定价（[developers.cloudflare.com/queues/platform/pricing](https://developers.cloudflare.com/queues/platform/pricing/)）：
+
+| 套餐 | 免费额度 | 超出部分 | 消息保留期 |
+| --- | --- | --- | --- |
+| Workers Free | 每天 10,000 次操作 | — | 24 小时 |
+| Workers Paid | 每月 1,000,000 次操作 | $0.40 / 百万次操作 | 默认 4 天，最长 14 天 |
+
+- 数据每满 64 KB 算一次**操作**；一条消息通常需要 3 次操作（写入、读取、删除），每次重试再多 1 次读取。
+- 本服务**一次上报请求只产生一条消息**（整批事件放进一条消息，不是一个事件一条消息）。以 SDK 默认每批 20 个事件、每批小于 64 KB 估算：**每 100 万个事件 ≈ 5 万条消息 ≈ 15 万次操作 ≈ $0.06**；付费套餐每月的免费额度大约可以覆盖 650 万个事件。
+- 消费者每处理一批消息算一次 Worker 调用；每批最多合并 100 条消息，再用一条 SQL 写入 D1。相比每个请求单独写库，D1 的写入次数会大幅减少。
 
 ## 3. 平台配置方法
 
@@ -70,11 +83,13 @@ KV 只做缓存（write key → App、事件定义）和登录限流计数，数
 
 - 普通变量写在 `vars`；密码用 `wrangler secret put ADMIN_PASSWORD`。
 - `d1_databases` / `kv_namespaces` 不写 id 时，首次 `wrangler deploy` 会自动创建资源。
-- 启用 Cloudflare Queues：取消注释 `queues` 段（生产者 binding 必须叫 `EVENTS_QUEUE`），并设置 `"QUEUE_DRIVER": "cloudflare"`。先创建队列：
+- **默认使用 Cloudflare Queues**：`wrangler.jsonc` 已配置 `"QUEUE_DRIVER": "cloudflare"` 和 `queues` 段（生产者 binding 必须叫 `EVENTS_QUEUE`）。部署前先创建队列：
   ```sh
   wrangler queues create serverless-analytics-events
   wrangler queues create serverless-analytics-events-dlq
   ```
+  如需关闭队列、改为直接写库，把 `QUEUE_DRIVER` 改成 `direct` 并删除 `queues` 段即可。
+- 自定义域名：部署时执行 `wrangler deploy --domain analytics.example.com`（该域名必须托管在同一个 Cloudflare 账号下）。在 GitHub Actions 中，可以用部署工作流的 `domain` 输入，或者仓库变量 `CLOUDFLARE_DOMAIN`。
 - 使用 Postgres：`wrangler hyperdrive create serverless-analytics --connection-string="postgres://..."`，取消注释 `hyperdrive` 段，并设置 `"DB_DRIVER": "postgres"`。
 - 本地开发：复制 `.dev.vars.example` 为 `.dev.vars`。
 
@@ -106,7 +121,22 @@ KV 只做缓存（write key → App、事件定义）和登录限流计数，数
 
 ---
 
-## 5. 最小示例
+## 5. 采样（在看板中按 App 配置）
+
+采样不是环境变量，而是在看板的 **App → Settings → Sampling** 中为每个 App 单独设置：
+
+| 模式 | 说明 |
+| --- | --- |
+| Full（默认） | 保存全部事件，数据精确。 |
+| Sampled · By user（推荐） | 按用户 id 哈希，只保留一部分用户的**全部**事件。漏斗、留存、人均指标都保持准确。 |
+| Sampled · By event | 每个事件单独决定是否保留（按事件 id 哈希，客户端重试得到的结果不变）。用户数会偏低，只能作为下限参考。 |
+
+- 可以按事件名覆盖采样率，例如 `purchase` 保留 100%、`screen_view` 保留 5%；设为 0% 表示直接丢弃该事件。`$error` 默认始终保留 100%。
+- 每条保存的事件带有权重（1 / 采样率），看板中的计数、求和、平均值都会按权重换算成全量的**估算值**；页面顶部会显示「Sampled · x%」标记。
+- 被采样丢弃的事件计入上报响应的 `sampled` 字段，客户端**不应重试**这部分事件。
+- 采样发生在服务端：可以节省存储和数据库写入，但不减少客户端的网络请求。
+
+## 6. 最小示例
 
 **Cloudflare + D1 + KV（默认）**
 

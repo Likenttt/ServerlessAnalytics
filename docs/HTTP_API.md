@@ -52,9 +52,10 @@ Content-Encoding: gzip        (可选)
 **响应**（请求体本身合法时始终为 200）：
 
 ```json
-{ "ok": true, "accepted": 1, "rejected": [{ "index": 3, "id": "…", "reason": "missing required property \"plan\"" }] }
+{ "ok": true, "accepted": 1, "sampled": 0, "rejected": [{ "index": 3, "id": "…", "reason": "missing required property \"plan\"" }] }
 ```
 
+- `sampled` 是按 App 采样设置被丢弃的事件数量，这部分事件同样**不要重试**。
 - `rejected` 中的事件**不要重试**，它们永远不会被接受（名称非法、strict 模式下未定义、属性类型不符等）。
 - `401`：write key 缺失或无效；`400`：JSON 或请求体结构非法；`413`：批次或请求体过大。
 - `5xx` / 网络错误：保留事件，指数退避后重试（带同样的 `id`，不会重复计数）。
