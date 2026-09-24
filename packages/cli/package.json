@@ -1,0 +1,30 @@
+{
+  "name": "serverless-analytics-cli",
+  "version": "0.1.0",
+  "description": "Command line and agent interface for Serverless Analytics",
+  "type": "module",
+  "bin": {
+    "sa": "./dist/cli.js",
+    "serverless-analytics": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "SKILL.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/cli.js --banner:js='#!/usr/bin/env node'",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@serverless-analytics/core": "workspace:*",
+    "@types/node": "^26.6.2",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.1"
+  }
+}

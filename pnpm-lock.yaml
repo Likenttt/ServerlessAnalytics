@@ -92,6 +92,27 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/cli:
+    devDependencies:
+      '@hono/node-server':
+        specifier: ^2.1.1
+        version: 2.1.1(hono@4.13.9)
+      '@serverless-analytics/core':
+        specifier: workspace:*
+        version: link:../core
+      '@types/node':
+        specifier: ^26.6.2
+        version: 26.6.2
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.0.1
+        version: 5.0.1(@types/node@26.6.2)(vite@8.3.1(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0))
+
   packages/core:
     dependencies:
       hono:
