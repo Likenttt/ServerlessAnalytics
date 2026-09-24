@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.wrangler/
+.vercel/
+.dev.vars
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage/
+apps/vercel/public/

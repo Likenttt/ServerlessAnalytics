@@ -1,0 +1,17 @@
+{
+  "name": "serverless-analytics",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @serverless-analytics/cloudflare --filter @serverless-analytics/dashboard dev",
+    "build": "pnpm --filter @serverless-analytics/sdk --filter @serverless-analytics/dashboard build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "deploy:cloudflare": "pnpm --filter @serverless-analytics/dashboard build && pnpm --filter @serverless-analytics/cloudflare run deploy",
+    "build:vercel": "pnpm --filter @serverless-analytics/dashboard build && pnpm --filter @serverless-analytics/vercel build"
+  }
+}
