@@ -40,4 +40,42 @@
   <string id="NeedStreak">连续日课 $2$/$1$ 天</string>
   <string id="Intro">一介凡夫 志在凌云</string>
   <string id="AwayFmt">闭关归来 修为+$1$</string>
+
+  <!-- 页面 -->
+  <string id="PageAttr">根骨</string>
+  <string id="PageQuest">日课</string>
+  <string id="PageRecord">江湖录</string>
+  <string id="Hint0">体魄最弱：多走路 练出拳</string>
+  <string id="Hint1">轻功最弱：多爬楼 练腾跃</string>
+  <string id="Hint2">内力最弱：多运动 练站桩</string>
+  <string id="Hint3">心境最弱：做日课 练吐纳</string>
+  <string id="Mood0">萎靡不振</string>
+  <string id="Mood1">气定神闲</string>
+  <string id="Mood2">神采奕奕</string>
+
+  <!-- 日课 -->
+  <string id="Quest0">步行</string>
+  <string id="Quest1">爬楼</string>
+  <string id="Quest1Alt">腾跃</string>
+  <string id="Quest2">强度分钟</string>
+  <string id="QuestAll">日课圆满 连续 $1$ 天</string>
+  <string id="QuestHint">每项完成 心境+10</string>
+
+  <!-- 江湖录 -->
+  <string id="Qg0">步履寻常</string>
+  <string id="Qg1">健步如飞</string>
+  <string id="Qg2">登高履险</string>
+  <string id="Qg3">飞檐走壁</string>
+  <string id="Qg4">一苇渡江</string>
+  <string id="Qg5">踏雪无痕</string>
+  <string id="Qg6">草上飞</string>
+  <string id="Qg7">凌空虚渡</string>
+  <string id="Qg8">御风而行</string>
+  <string id="RecQg">轻功 · $1$</string>
+  <string id="RecDays">修炼第 $1$ 天</string>
+  <string id="RecStreak">连续日课 $1$ 天</string>
+  <string id="RecSteps">单日最多 $1$ 步</string>
+  <string id="RecFloors">单日最多 $1$ 层</string>
+  <string id="RecIm">单日强度 $1$ 分钟</string>
+  <string id="RecTotal">累计 $1$ 步</string>
 </strings>

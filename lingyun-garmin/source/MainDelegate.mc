@@ -8,4 +8,14 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
     BehaviorDelegate.initialize();
     _view = view;
   }
+
+  function onNextPage() as Boolean {
+    _view.turn(1);
+    return true;
+  }
+
+  function onPreviousPage() as Boolean {
+    _view.turn(-1);
+    return true;
+  }
 }
