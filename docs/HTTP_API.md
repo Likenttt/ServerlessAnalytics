@@ -94,3 +94,5 @@ curl -X POST https://analytics.example.com/v1/track \
 ## 看板 API
 
 `/api/*` 是看板使用的内部 API（Cookie 会话鉴权），不作为稳定的公开接口；类型定义见 [`packages/core/src/types.ts`](../packages/core/src/types.ts)。
+
+MCP 端点 `/mcp` 和它的 OAuth 端点（`/oauth/*`、`/.well-known/oauth-*`）见 [MCP.md](./MCP.md)。

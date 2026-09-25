@@ -35,8 +35,8 @@
 | 访问 | 单管理员登录、`ADMIN_API_TOKEN` 读取 API | ✅ 已完成 |
 | 访问 | 个人访问令牌：看板中创建和吊销，记录最后使用时间 | ✅ 已完成 |
 | CLI / Agent | `serverless-analytics-cli`（`sa`）：网页授权登录，覆盖接入、配置和查询；自动输出 JSON；附带 agent skill | ✅ 已完成 |
-| CLI / Agent | MCP server：远程 `/mcp`（访问令牌认证）和本地 `sa mcp`（stdio），提供 20 个工具，覆盖接入、配置和查询 | ✅ 已完成 |
-| CLI / Agent | MCP OAuth（让 Claude.ai 等远程 connector 直接授权连接） | 🗓️ 计划中 |
+| CLI / Agent | MCP server：远程 `/mcp` 和本地 `sa mcp`（stdio），提供 21 个工具，覆盖接入、配置和查询 | ✅ 已完成 |
+| CLI / Agent | MCP OAuth 2.1：只填 URL 即可连接（自动发现、动态注册客户端、PKCE、自动续期），在看板中批准和吊销 | ✅ 已完成 |
 | 访问 | 多用户、角色权限、SSO | 🗓️ 计划中 |
 | 规模 | 按小时 / 天的预聚合；Analytics Engine / ClickHouse 适配 | 🗓️ 计划中 |
 | 工程 | CI（类型检查、双数据库测试、构建、打包） | ✅ 已完成 |
@@ -127,10 +127,10 @@ sa query trend "iOS App" --metric users --by channel --range 30d
 
 把 [`packages/cli/SKILL.md`](packages/cli/SKILL.md) 放到 agent 的 skills 目录后，agent 就能用自然语言完成接入、配置和查询。
 
-也可以不经过 shell，把部署直接作为 MCP server 连接（[说明](docs/MCP.md)）：
+也可以不经过 shell，把部署直接作为 MCP server 连接（[说明](docs/MCP.md)）。只需要填写 URL，客户端会打开看板请你授权（OAuth）：
 
 ```sh
-claude mcp add --transport http serverless-analytics https://<your-deployment>/mcp --header "Authorization: Bearer <访问令牌>"
+claude mcp add --transport http serverless-analytics https://<your-deployment>/mcp
 ```
 
 ## 文档

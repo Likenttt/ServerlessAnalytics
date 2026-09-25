@@ -88,7 +88,7 @@ sa query events <app> --name purchase --limit 20
 sa mcp        # 本地 stdio MCP server，复用当前登录状态
 ```
 
-支持远程 MCP 的客户端，可以直接连接部署的 `/mcp` 端点。配置方法见 [docs/MCP.md](../../docs/MCP.md)。
+支持远程 MCP 的客户端，可以直接连接部署的 `/mcp` 端点（支持 OAuth，只填 URL 即可）。配置方法见 [docs/MCP.md](../../docs/MCP.md)。
 
 ## 配合 agent 使用
 
