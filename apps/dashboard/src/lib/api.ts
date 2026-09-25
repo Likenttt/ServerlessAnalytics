@@ -11,6 +11,7 @@ import type {
   EventDefinition,
   EventsResponse,
   InsightsResponse,
+  OAuthGrant,
   OverviewResponse,
   PropertyDefinition,
   SchemaMode,
@@ -74,6 +75,12 @@ export const api = {
   cliRequest: (code: string) =>
     request<{ userCode: string; name: string; createdAt: number; expiresAt: number }>(`/api/cli/auth/request${qs({ code })}`),
   cliApprove: (userCode: string) => request<{ approved: boolean }>('/api/cli/auth/approve', { method: 'POST', json: { userCode } }),
+  oauthRequest: (search: string) =>
+    request<{ client: { id: string; name: string; uri: string | null }; redirectUri: string }>(`/api/oauth/authorize${search}`),
+  oauthDecide: (params: Record<string, string>, approve: boolean) =>
+    request<{ redirectTo: string }>('/api/oauth/authorize', { method: 'POST', json: { params, approve } }),
+  oauthGrants: () => request<{ grants: OAuthGrant[] }>('/api/oauth/grants'),
+  revokeOAuthGrant: (id: string) => request<{ revoked: boolean }>(`/api/oauth/grants/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   cliDeny: (userCode: string) => request<{ denied: boolean }>('/api/cli/auth/deny', { method: 'POST', json: { userCode } }),
 
   apps: () => request<{ apps: AppWithStats[] }>(`/api/apps${qs({ tz: tzOffset() })}`),

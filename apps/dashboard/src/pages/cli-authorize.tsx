@@ -8,7 +8,7 @@ import { useSearchParams } from '../lib/url'
 
 // Opened from `sa login`. The code shown here must match the one in the terminal.
 
-function Shell({ children }: { children: React.ReactNode }) {
+export function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="flex min-h-dvh items-center justify-center bg-subtle px-4 py-10">
       <div className="w-full max-w-md">
@@ -23,7 +23,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function Done({ approved }: { approved: boolean }) {
   return (
-    <Shell>
+    <AuthShell>
       <div className="flex flex-col items-center gap-3 p-8 text-center">
         <span className={`flex h-10 w-10 items-center justify-center rounded-full ${approved ? 'bg-success-bg text-success' : 'bg-hover text-muted'}`}>
           {approved ? <CheckIcon /> : <XIcon />}
@@ -35,7 +35,7 @@ function Done({ approved }: { approved: boolean }) {
             : 'The CLI was not given access. You can close this tab.'}
         </p>
       </div>
-    </Shell>
+    </AuthShell>
   )
 }
 
@@ -60,7 +60,7 @@ export function CliAuthorizePage() {
 
   if (!code) {
     return (
-      <Shell>
+      <AuthShell>
         <form
           className="flex flex-col gap-4 p-6"
           onSubmit={(e) => {
@@ -81,13 +81,13 @@ export function CliAuthorizePage() {
             Continue
           </Button>
         </form>
-      </Shell>
+      </AuthShell>
     )
   }
 
   const error = request.error ?? approve.error ?? deny.error
   return (
-    <Shell>
+    <AuthShell>
       <div className="flex flex-col gap-5 p-6">
         <div className="flex flex-col gap-1.5">
           <h1 className="text-xl font-semibold tracking-tight">Authorize the CLI</h1>
@@ -124,6 +124,6 @@ export function CliAuthorizePage() {
           </Button>
         </div>
       )}
-    </Shell>
+    </AuthShell>
   )
 }

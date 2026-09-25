@@ -13,6 +13,7 @@ import { ExplorePage } from './pages/explore'
 import { FunnelsPage } from './pages/funnels'
 import { LivePage } from './pages/live'
 import { LoginPage } from './pages/login'
+import { OAuthAuthorizePage } from './pages/oauth-authorize'
 import { OverviewPage } from './pages/overview'
 import { ConfigErrorPage, SetupPage } from './pages/setup'
 import { SystemPage } from './pages/system'
@@ -74,6 +75,9 @@ function Authenticated() {
       </Route>
       <Route path="/cli/authorize">
         <CliAuthorizePage />
+      </Route>
+      <Route path="/authorize">
+        <OAuthAuthorizePage />
       </Route>
       <Route path="/settings">
         <Header />

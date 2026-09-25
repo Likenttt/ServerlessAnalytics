@@ -1,4 +1,4 @@
-import type { ApiToken } from '@serverless-analytics/core/types'
+import type { ApiToken, OAuthGrant } from '@serverless-analytics/core/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { Dialog } from '../components/dialog'
@@ -122,7 +122,7 @@ function TokensCard() {
               <CopyButton value={secret} label="Copy token" />
             </div>
             <CodeBlock
-              label="Connect an agent (MCP), e.g. Claude Code"
+              label="Connect an MCP client without OAuth, e.g. Claude Code"
               code={`claude mcp add --transport http serverless-analytics ${window.location.origin}/mcp \\\n  --header "Authorization: Bearer ${secret}"`}
             />
           </>
@@ -137,6 +137,65 @@ function TokensCard() {
         onClose={() => setRevoking(null)}
         title="Revoke token?"
         description={`Anything using “${revoking?.name ?? ''}” stops working immediately.`}
+        footer={
+          <>
+            <Button onClick={() => setRevoking(null)}>Cancel</Button>
+            <Button variant="danger" loading={revoke.isPending} onClick={() => revoking && revoke.mutate(revoking.id)}>
+              Revoke
+            </Button>
+          </>
+        }
+      />
+    </SettingsCard>
+  )
+}
+
+function AuthorizedAppsCard() {
+  const queryClient = useQueryClient()
+  const grants = useQuery({ queryKey: ['oauth-grants'], queryFn: api.oauthGrants })
+  const [revoking, setRevoking] = useState<OAuthGrant | null>(null)
+  const revoke = useMutation({
+    mutationFn: (id: string) => api.revokeOAuthGrant(id),
+    onSuccess: () => {
+      setRevoking(null)
+      queryClient.invalidateQueries({ queryKey: ['oauth-grants'] })
+    },
+  })
+  const list = grants.data?.grants ?? []
+
+  return (
+    <SettingsCard
+      title="Authorized apps"
+      description="MCP clients connected with OAuth. Add the MCP URL in your client; it opens this dashboard for you to approve it. Access tokens last an hour and renew automatically."
+      footer={`${list.length} authorized app${list.length === 1 ? '' : 's'}`}
+    >
+      <div className="flex flex-col gap-4">
+        <CodeBlock label="Connect Claude Code" code={`claude mcp add --transport http serverless-analytics ${window.location.origin}/mcp`} />
+        {list.length > 0 && (
+          <ul className="divide-y divide-border rounded-md border border-border">
+            {list.map((g) => (
+              <li key={g.id} className="flex items-center gap-4 px-3 py-2.5 text-[13px]">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{g.clientName}</div>
+                  <div className="truncate text-xs text-muted">{g.clientUri ?? `Client ${g.clientId.slice(0, 8)}…`}</div>
+                </div>
+                <div className="hidden text-right text-xs text-muted sm:block">
+                  <div>Authorized {formatRelative(g.createdAt)}</div>
+                  <div>{g.lastUsedAt ? `Used ${formatRelative(g.lastUsedAt)}` : 'Never used'}</div>
+                </div>
+                <Button variant="tertiary" className="!text-danger" onClick={() => setRevoking(g)}>
+                  Revoke
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <Dialog
+        open={revoking !== null}
+        onClose={() => setRevoking(null)}
+        title="Revoke access?"
+        description={`“${revoking?.clientName ?? ''}” is disconnected immediately and has to be authorized again.`}
         footer={
           <>
             <Button onClick={() => setRevoking(null)}>Cancel</Button>
@@ -217,8 +276,9 @@ export function SystemPage() {
             </dl>
           </SettingsCard>
 
-          <TokensCard />
+          <AuthorizedAppsCard />
 
+          <TokensCard />
         </div>
       )}
     </Page>
