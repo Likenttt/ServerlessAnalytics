@@ -4,6 +4,11 @@ import { randomString, sha256 } from './util.js'
 
 export const TOKEN_PREFIX = 'sa_pat_'
 
+// OAuth tokens for MCP clients (routes/oauth.ts).
+export const OAUTH_ACCESS_PREFIX = 'sa_oat_'
+export const OAUTH_REFRESH_PREFIX = 'sa_ort_'
+export const OAUTH_CLIENT_SECRET_PREFIX = 'sa_ocs_'
+
 export const newAccessToken = () => `${TOKEN_PREFIX}${randomString(40)}`
 
 export async function hashToken(token: string): Promise<string> {

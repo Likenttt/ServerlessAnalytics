@@ -2,13 +2,14 @@ import type { MiddlewareHandler } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { SESSION_COOKIE, checkPassword, verifySessionToken } from '../auth.js'
 import { apiError, publicOrigin, type AppEnv } from '../http.js'
-import { TOKEN_PREFIX, hashToken } from '../tokens.js'
+import { OAUTH_ACCESS_PREFIX, TOKEN_PREFIX, hashToken } from '../tokens.js'
 
 const TOUCH_EVERY_MS = 3_600_000
 
 /**
  * Dashboard session cookie, or `Authorization: Bearer` with a personal access
- * token (`sa_pat_…`, issued by `sa login`) or ADMIN_API_TOKEN. Bearer requests
+ * token (`sa_pat_…`, issued by `sa login`), an OAuth access token (`sa_oat_…`,
+ * issued to MCP clients) or ADMIN_API_TOKEN. Bearer requests
  * carry no cookie, so they need no CSRF check.
  */
 export const requireSession: MiddlewareHandler<AppEnv> = async (c, next) => {
@@ -24,6 +25,17 @@ export const requireSession: MiddlewareHandler<AppEnv> = async (c, next) => {
         c.get('services').waitUntil(repo.touchToken(token.id, now).catch(() => {}))
       }
       c.set('token', token)
+      return next()
+    }
+    if (secret.startsWith(OAUTH_ACCESS_PREFIX)) {
+      const grant = await repo.findOAuthGrant({ accessHash: await hashToken(secret) })
+      const now = Date.now()
+      if (!grant || Number(grant.access_expires_at) < now) throw apiError(401, 'invalid_token', 'Invalid or expired access token')
+      const lastUsedAt = grant.last_used_at == null ? null : Number(grant.last_used_at)
+      if (!lastUsedAt || now - lastUsedAt > TOUCH_EVERY_MS) {
+        c.get('services').waitUntil(repo.touchOAuthGrant(grant.id, now).catch(() => {}))
+      }
+      c.set('token', { id: grant.id, name: grant.client_name, prefix: OAUTH_ACCESS_PREFIX, createdAt: Number(grant.created_at), lastUsedAt })
       return next()
     }
     if (config.auth.apiToken && (await checkPassword(config.auth.apiToken, secret))) return next()

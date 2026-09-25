@@ -3,6 +3,7 @@ import { gzipSync } from 'node:zlib'
 import { createApp } from '../src/app.js'
 import { consumeQueueBodies, createServices } from '../src/services.js'
 import type { App, IngestResponse, InsightsResponse, OverviewResponse } from '../src/types.js'
+import { base64url } from '../src/util.js'
 import { fakeD1, d1Database } from './helpers.js'
 
 const PASSWORD = 'correct horse battery'
@@ -184,6 +185,126 @@ describe('HTTP API', () => {
     const { tokens } = (await (await t.request('/api/tokens')).json()) as { tokens: { id: string; name: string }[] }
     await t.request(`/api/tokens/${tokens.find((x) => x.name === 'mcp')!.id}`, { method: 'DELETE' })
     expect((await mcp({ jsonrpc: '2.0', id: 3, method: 'ping' })).status).toBe(401)
+  })
+
+  it('authorizes MCP clients with OAuth (discovery, registration, PKCE, refresh, revoke)', async () => {
+    await bootstrap(t)
+    const mcp = (token?: string) =>
+      t.request('/mcp', { method: 'POST', anonymous: true, json: { jsonrpc: '2.0', id: 1, method: 'ping' }, headers: token ? { authorization: `Bearer ${token}` } : {} })
+    const form = (path: string, params: Record<string, string>) =>
+      t.request(path, { method: 'POST', anonymous: true, headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(params).toString() })
+
+    // 1. Discovery: 401 → protected resource metadata → authorization server metadata
+    const challenge = (await mcp()).headers.get('www-authenticate')!
+    const prmUrl = /resource_metadata="([^"]+)"/.exec(challenge)![1]!
+    expect(prmUrl).toBe('https://analytics.test/.well-known/oauth-protected-resource/mcp')
+    const prm = (await (await t.request(new URL(prmUrl).pathname, { anonymous: true })).json()) as { resource: string; authorization_servers: string[] }
+    expect(prm).toMatchObject({ resource: 'https://analytics.test/mcp', authorization_servers: ['https://analytics.test'] })
+    const meta = (await (await t.request('/.well-known/oauth-authorization-server', { anonymous: true })).json()) as Record<string, unknown>
+    expect(meta).toMatchObject({ issuer: 'https://analytics.test', code_challenge_methods_supported: ['S256'], registration_endpoint: 'https://analytics.test/oauth/register' })
+
+    // 2. Dynamic client registration
+    expect((await t.request('/oauth/register', { method: 'POST', anonymous: true, json: { redirect_uris: ['http://evil.example/cb'] } })).status).toBe(400)
+    const reg = await t.request('/oauth/register', { method: 'POST', anonymous: true, json: { client_name: 'Claude Code', redirect_uris: ['http://localhost:33418/callback'] } })
+    expect(reg.status).toBe(201)
+    const { client_id } = (await reg.json()) as { client_id: string }
+
+    // 3. Authorization: validated, then handed to the dashboard consent page
+    const verifier = 'v'.repeat(20) + '-._~' + 'x'.repeat(30)
+    const challengeS256 = base64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))))
+    const params = {
+      response_type: 'code',
+      client_id,
+      redirect_uri: 'http://localhost:51234/callback', // loopback: any port
+      code_challenge: challengeS256,
+      code_challenge_method: 'S256',
+      state: 'xyz',
+      resource: 'https://analytics.test/mcp',
+    }
+    const authorize = await t.request(`/oauth/authorize?${new URLSearchParams(params)}`, { anonymous: true })
+    expect(authorize.status).toBe(302)
+    expect(authorize.headers.get('location')).toMatch(/^\/authorize\?/)
+    const noPkce = await t.request(`/oauth/authorize?${new URLSearchParams({ ...params, code_challenge: '' })}`, { anonymous: true })
+    expect(new URL(noPkce.headers.get('location')!).searchParams.get('error')).toBe('invalid_request')
+    expect((await t.request(`/oauth/authorize?${new URLSearchParams({ ...params, redirect_uri: 'https://evil.example/cb' })}`, { anonymous: true })).status).toBe(400)
+
+    // The consent API requires the dashboard session
+    expect((await t.request(`/api/oauth/authorize?${new URLSearchParams(params)}`, { anonymous: true })).status).toBe(401)
+    const info = (await (await t.request(`/api/oauth/authorize?${new URLSearchParams(params)}`)).json()) as { client: { name: string } }
+    expect(info.client.name).toBe('Claude Code')
+    const denied = (await (await t.request('/api/oauth/authorize', { method: 'POST', json: { params, approve: false } })).json()) as { redirectTo: string }
+    expect(new URL(denied.redirectTo).searchParams.get('error')).toBe('access_denied')
+    const approved = (await (await t.request('/api/oauth/authorize', { method: 'POST', json: { params, approve: true } })).json()) as { redirectTo: string }
+    const back = new URL(approved.redirectTo)
+    expect(back.origin + back.pathname).toBe('http://localhost:51234/callback')
+    expect(back.searchParams.get('state')).toBe('xyz')
+    expect(back.searchParams.get('iss')).toBe('https://analytics.test')
+    const code = back.searchParams.get('code')!
+
+    // 4. Token exchange: PKCE is checked and the code is single-use
+    const exchange = { grant_type: 'authorization_code', code, client_id, redirect_uri: params.redirect_uri, resource: params.resource }
+    expect((await form('/oauth/token', { ...exchange, code_verifier: 'w'.repeat(50) })).status).toBe(400)
+    const code2 = new URL(
+      ((await (await t.request('/api/oauth/authorize', { method: 'POST', json: { params, approve: true } })).json()) as { redirectTo: string }).redirectTo,
+    ).searchParams.get('code')!
+    const tokenRes = await form('/oauth/token', { ...exchange, code: code2, code_verifier: verifier })
+    expect(tokenRes.status).toBe(200)
+    expect(tokenRes.headers.get('cache-control')).toBe('no-store')
+    const tokens = (await tokenRes.json()) as { access_token: string; refresh_token: string; token_type: string; expires_in: number }
+    expect(tokens).toMatchObject({ token_type: 'Bearer', expires_in: 3600 })
+    expect((await form('/oauth/token', { ...exchange, code: code2, code_verifier: verifier })).status).toBe(400)
+
+    // 5. The access token works for MCP; refresh rotates both tokens
+    expect((await mcp(tokens.access_token)).status).toBe(200)
+    const refreshed = (await (await form('/oauth/token', { grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id })).json()) as typeof tokens
+    expect(refreshed.access_token).not.toBe(tokens.access_token)
+    expect((await mcp(tokens.access_token)).status).toBe(401)
+    expect((await form('/oauth/token', { grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id })).status).toBe(400)
+    const expired = await mcp(tokens.access_token)
+    expect(expired.headers.get('www-authenticate')).toContain('error="invalid_token"')
+    expect((await mcp(refreshed.access_token)).status).toBe(200)
+
+    // 6. Listed in Settings; revoking stops it
+    const { grants } = (await (await t.request('/api/oauth/grants')).json()) as { grants: { id: string; clientName: string }[] }
+    expect(grants.map((g) => g.clientName)).toEqual(['Claude Code'])
+    expect((await form('/oauth/revoke', { token: refreshed.refresh_token })).status).toBe(200)
+    expect((await mcp(refreshed.access_token)).status).toBe(401)
+    expect(((await (await t.request('/api/oauth/grants')).json()) as { grants: unknown[] }).grants).toEqual([])
+  })
+
+  it('supports confidential OAuth clients and CORS preflight', async () => {
+    await bootstrap(t)
+    const reg = (await (
+      await t.request('/oauth/register', {
+        method: 'POST',
+        anonymous: true,
+        json: { client_name: 'Web', redirect_uris: ['https://client.example/cb'], token_endpoint_auth_method: 'client_secret_basic' },
+      })
+    ).json()) as { client_id: string; client_secret: string }
+    expect(reg.client_secret).toMatch(/^sa_ocs_/)
+    const bad = await t.request('/oauth/token', {
+      method: 'POST',
+      anonymous: true,
+      headers: { authorization: `Basic ${btoa(`${reg.client_id}:wrong`)}`, 'content-type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=refresh_token&refresh_token=x',
+    })
+    expect(bad.status).toBe(401)
+    expect(await bad.json()).toMatchObject({ error: 'invalid_client' })
+    const good = await t.request('/oauth/token', {
+      method: 'POST',
+      anonymous: true,
+      headers: { authorization: `Basic ${btoa(`${reg.client_id}:${reg.client_secret}`)}`, 'content-type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=refresh_token&refresh_token=x',
+    })
+    expect(await good.json()).toMatchObject({ error: 'invalid_grant' })
+
+    const preflight = await t.request('/mcp', {
+      method: 'OPTIONS',
+      anonymous: true,
+      headers: { origin: 'http://localhost:6274', 'access-control-request-method': 'POST', 'access-control-request-headers': 'authorization' },
+    })
+    expect(preflight.status).toBe(204)
+    expect(preflight.headers.get('access-control-allow-origin')).toBe('*')
   })
 
   it('rejects cross-origin mutations', async () => {

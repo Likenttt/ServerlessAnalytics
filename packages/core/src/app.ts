@@ -7,6 +7,7 @@ import type { AppEnv } from './http.js'
 import { adminRoutes } from './routes/admin.js'
 import { cliRoutes } from './routes/cli.js'
 import { mountMcp } from './routes/mcp.js'
+import { oauthRoutes } from './routes/oauth.js'
 import { ingestRoutes } from './routes/ingest.js'
 import { internalRoutes } from './routes/internal.js'
 import type { Services } from './services.js'
@@ -23,6 +24,7 @@ export interface CreateAppOptions {
  * The whole HTTP surface, independent of the hosting platform:
  *   /v1/*   public ingestion (write key)
  *   /api/*  dashboard API (session cookie), QStash callback, cron
+ *   /mcp    remote MCP server; /oauth/* and /.well-known/* authorize its clients
  * Everything else is the static dashboard, served by the platform.
  */
 export function createApp(options: CreateAppOptions) {
@@ -67,9 +69,11 @@ export function createApp(options: CreateAppOptions) {
   app.use('/v1/*', withServices)
   app.use('/api/*', withServices)
   app.use('/mcp', withServices)
+  app.use('/oauth/*', withServices)
   app.route('/v1', ingestRoutes)
   app.route('/api', internalRoutes)
   app.route('/api', cliRoutes)
+  app.route('/', oauthRoutes)
   app.route('/api', adminRoutes)
   mountMcp(app)
 

@@ -1,14 +1,30 @@
 import { handlePayload, parseError, readResponse, type Api } from '@serverless-analytics/mcp'
-import type { Hono } from 'hono'
+import type { Context, Hono } from 'hono'
+import { cors } from 'hono/cors'
 import { publicOrigin, readBody, type AppEnv } from '../http.js'
+import { resourceMetadataUrl } from './oauth.js'
 import { requireSession } from './session.js'
 
 /**
  * Remote MCP server (Streamable HTTP, stateless JSON responses) at /mcp.
- * Authenticate with `Authorization: Bearer <access token>`. Tools call the
+ * Authenticate with `Authorization: Bearer <token>`: an OAuth access token
+ * (discovered through the 401 challenge) or a personal access token. Tools call the
  * dashboard API in-process with the same credentials, so every check applies.
  */
+const challenge = (c: Context, error?: string) =>
+  `Bearer realm="serverless-analytics", ${error ? `error="${error}", ` : ''}resource_metadata="${resourceMetadataUrl(publicOrigin(c))}"`
+
 export function mountMcp(app: Hono<AppEnv>) {
+  // Browser-based clients (e.g. MCP Inspector). Bearer auth only; cookies aren't sent cross-origin.
+  app.use(
+    '/mcp',
+    cors({
+      origin: '*',
+      allowMethods: ['GET', 'POST', 'DELETE'],
+      allowHeaders: ['authorization', 'content-type', 'mcp-protocol-version', 'mcp-session-id', 'last-event-id'],
+      exposeHeaders: ['www-authenticate', 'mcp-session-id'],
+    }),
+  )
   app.on(['GET', 'DELETE'], '/mcp', (c) =>
     c.json({ error: { code: 'method_not_allowed', message: 'This MCP server is stateless: POST JSON-RPC messages to /mcp.' } }, 405, { allow: 'POST' }),
   )
@@ -16,15 +32,19 @@ export function mountMcp(app: Hono<AppEnv>) {
   app.post(
     '/mcp',
     async (c, next) => {
-      // Tell MCP clients how to authenticate before the generic 401.
+      // Point MCP clients at the OAuth metadata (RFC 9728) on every 401.
       if (!c.req.header('authorization') && !c.req.header('cookie')) {
         return c.json(
-          { error: { code: 'unauthorized', message: 'Send Authorization: Bearer <access token> (Settings → Access tokens, or sa login).' } },
+          { error: { code: 'unauthorized', message: 'Sign in with OAuth, or send Authorization: Bearer <access token> (Settings → Access tokens).' } },
           401,
-          { 'www-authenticate': 'Bearer realm="serverless-analytics", error="invalid_token"' },
+          { 'www-authenticate': challenge(c) },
         )
       }
       await next()
+      if (c.res.status === 401) {
+        c.res = new Response(c.res.body, c.res)
+        c.res.headers.set('www-authenticate', challenge(c, 'invalid_token'))
+      }
     },
     requireSession,
     async (c) => {
