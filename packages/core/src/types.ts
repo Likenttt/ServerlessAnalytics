@@ -228,6 +228,16 @@ export interface ApiToken {
   lastUsedAt: number | null
 }
 
+/** A client (e.g. an MCP client) the user authorized through OAuth. */
+export interface OAuthGrant {
+  id: string
+  clientId: string
+  clientName: string
+  clientUri: string | null
+  createdAt: number
+  lastUsedAt: number | null
+}
+
 export interface IngestResponse {
   ok: true
   accepted: number

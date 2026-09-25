@@ -84,10 +84,47 @@ export interface CliAuthRequestsTable {
   expires_at: number
 }
 
+/** OAuth clients, registered dynamically by MCP clients (RFC 7591). */
+export interface OAuthClientsTable {
+  id: string
+  /** SHA-256 of the client secret; null for public clients (PKCE only). */
+  secret_hash: string | null
+  name: string
+  /** JSON array of exact redirect URIs. */
+  redirect_uris: string
+  client_uri: string | null
+  created_at: number
+}
+
+/** Single-use authorization codes (PKCE S256), valid for a few minutes. */
+export interface OAuthCodesTable {
+  code_hash: string
+  client_id: string
+  redirect_uri: string
+  code_challenge: string
+  resource: string | null
+  expires_at: number
+}
+
+/** One row per approved client. Refreshing rotates both tokens in place. */
+export interface OAuthGrantsTable {
+  id: string
+  client_id: string
+  access_hash: string
+  access_expires_at: number
+  refresh_hash: string
+  refresh_expires_at: number
+  created_at: number
+  last_used_at: number | null
+}
+
 export interface Database {
   apps: AppsTable
   api_tokens: ApiTokensTable
   cli_auth_requests: CliAuthRequestsTable
+  oauth_clients: OAuthClientsTable
+  oauth_codes: OAuthCodesTable
+  oauth_grants: OAuthGrantsTable
   event_definitions: EventDefinitionsTable
   events: EventsTable
   sa_migrations: MigrationsTable

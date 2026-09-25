@@ -118,6 +118,42 @@ MIGRATIONS.push({
   },
 })
 
+MIGRATIONS.push({
+  name: '0005_oauth',
+  statements: (d) => {
+    const t = types(d)
+    return [
+      `CREATE TABLE IF NOT EXISTS oauth_clients (
+        id TEXT PRIMARY KEY,
+        secret_hash TEXT,
+        name TEXT NOT NULL,
+        redirect_uris TEXT NOT NULL,
+        client_uri TEXT,
+        created_at ${t.bigint} NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS oauth_codes (
+        code_hash TEXT PRIMARY KEY,
+        client_id TEXT NOT NULL,
+        redirect_uri TEXT NOT NULL,
+        code_challenge TEXT NOT NULL,
+        resource TEXT,
+        expires_at ${t.bigint} NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS oauth_grants (
+        id TEXT PRIMARY KEY,
+        client_id TEXT NOT NULL,
+        access_hash TEXT NOT NULL UNIQUE,
+        access_expires_at ${t.bigint} NOT NULL,
+        refresh_hash TEXT NOT NULL UNIQUE,
+        refresh_expires_at ${t.bigint} NOT NULL,
+        created_at ${t.bigint} NOT NULL,
+        last_used_at ${t.bigint}
+      )`,
+      `CREATE INDEX IF NOT EXISTS oauth_grants_client ON oauth_grants (client_id)`,
+    ]
+  },
+})
+
 const isMissingTable = (error: unknown) =>
   /no such table|does not exist|42P01/i.test(String((error as { message?: string })?.message ?? error)) ||
   (error as { code?: string })?.code === '42P01'

@@ -5,6 +5,7 @@ import type {
   DefinitionStatus,
   ActiveUsers,
   ApiToken,
+  OAuthGrant,
   ErrorsResponse,
   EventDefinition,
   FunnelResponse,
@@ -23,7 +24,18 @@ import { DEFAULT_SAMPLING, type SamplingConfig } from '../types.js'
 import { DAY, INTERVAL_MS, bucketOf, newAppId, newWriteKey, rangeBuckets, trailingRange } from '../util.js'
 import { ERROR_EVENT } from '../ingest/errors.js'
 import type { SqlDialect } from './dialect.js'
-import type { ApiTokensTable, AppsTable, CliAuthRequestsTable, Database, EventDefinitionsTable, EventRow, EventsTable } from './schema.js'
+import type {
+  ApiTokensTable,
+  AppsTable,
+  CliAuthRequestsTable,
+  Database,
+  EventDefinitionsTable,
+  EventRow,
+  EventsTable,
+  OAuthClientsTable,
+  OAuthCodesTable,
+  OAuthGrantsTable,
+} from './schema.js'
 
 export interface Filter {
   by: GroupBy
@@ -271,6 +283,101 @@ export class Repository {
 
   async deleteCliAuthRequest(deviceCodeHash: string): Promise<void> {
     await this.db.deleteFrom('cli_auth_requests').where('device_code_hash', '=', deviceCodeHash).execute()
+  }
+
+  // OAuth (MCP clients) --------------------------------------------------------
+
+  async createOAuthClient(row: OAuthClientsTable): Promise<void> {
+    // Registration is open (RFC 7591), so drop clients that never completed an authorization.
+    const stale = Date.now() - DAY
+    await this.db
+      .deleteFrom('oauth_clients')
+      .where('created_at', '<', stale)
+      .where(({ not, exists, selectFrom }) =>
+        not(exists(selectFrom('oauth_grants').select('oauth_grants.id').whereRef('oauth_grants.client_id', '=', 'oauth_clients.id'))),
+      )
+      .execute()
+    await this.db.insertInto('oauth_clients').values(row).execute()
+  }
+
+  async getOAuthClient(id: string): Promise<OAuthClientsTable | null> {
+    return (await this.db.selectFrom('oauth_clients').selectAll().where('id', '=', id).executeTakeFirst()) ?? null
+  }
+
+  async createOAuthCode(row: OAuthCodesTable): Promise<void> {
+    await this.db.deleteFrom('oauth_codes').where('expires_at', '<', Date.now()).execute()
+    await this.db.insertInto('oauth_codes').values(row).execute()
+  }
+
+  /** Returns the code and deletes it in one statement, so it can be used only once. */
+  async takeOAuthCode(codeHash: string): Promise<OAuthCodesTable | null> {
+    return (await this.db.deleteFrom('oauth_codes').where('code_hash', '=', codeHash).returningAll().executeTakeFirst()) ?? null
+  }
+
+  async createOAuthGrant(row: OAuthGrantsTable): Promise<void> {
+    await this.db.deleteFrom('oauth_grants').where('refresh_expires_at', '<', Date.now()).execute()
+    await this.db.insertInto('oauth_grants').values(row).execute()
+  }
+
+  async findOAuthGrant(by: { accessHash: string } | { refreshHash: string }): Promise<(OAuthGrantsTable & { client_name: string }) | null> {
+    let q = this.db
+      .selectFrom('oauth_grants')
+      .innerJoin('oauth_clients', 'oauth_clients.id', 'oauth_grants.client_id')
+      .selectAll('oauth_grants')
+      .select('oauth_clients.name as client_name')
+    q = 'accessHash' in by ? q.where('oauth_grants.access_hash', '=', by.accessHash) : q.where('oauth_grants.refresh_hash', '=', by.refreshHash)
+    return (await q.executeTakeFirst()) ?? null
+  }
+
+  /** Replaces both tokens, only if the refresh token is still the current one. */
+  async rotateOAuthGrant(
+    id: string,
+    currentRefreshHash: string,
+    values: Pick<OAuthGrantsTable, 'access_hash' | 'access_expires_at' | 'refresh_hash' | 'refresh_expires_at'>,
+  ): Promise<boolean> {
+    const result = await this.db
+      .updateTable('oauth_grants')
+      .set(values)
+      .where('id', '=', id)
+      .where('refresh_hash', '=', currentRefreshHash)
+      .executeTakeFirst()
+    return Number(result.numUpdatedRows ?? 0) > 0
+  }
+
+  async touchOAuthGrant(id: string, at: number): Promise<void> {
+    await this.db.updateTable('oauth_grants').set({ last_used_at: at }).where('id', '=', id).execute()
+  }
+
+  async listOAuthGrants(): Promise<OAuthGrant[]> {
+    const rows = await this.db
+      .selectFrom('oauth_grants')
+      .innerJoin('oauth_clients', 'oauth_clients.id', 'oauth_grants.client_id')
+      .select([
+        'oauth_grants.id',
+        'oauth_grants.client_id',
+        'oauth_grants.created_at',
+        'oauth_grants.last_used_at',
+        'oauth_clients.name',
+        'oauth_clients.client_uri',
+      ])
+      .where('oauth_grants.refresh_expires_at', '>=', Date.now())
+      .orderBy('oauth_grants.created_at', 'desc')
+      .execute()
+    return rows.map((r) => ({
+      id: r.id,
+      clientId: r.client_id,
+      clientName: r.name,
+      clientUri: r.client_uri,
+      createdAt: Number(r.created_at),
+      lastUsedAt: r.last_used_at == null ? null : Number(r.last_used_at),
+    }))
+  }
+
+  async deleteOAuthGrant(by: { id: string } | { tokenHash: string }): Promise<boolean> {
+    let q = this.db.deleteFrom('oauth_grants')
+    q = 'id' in by ? q.where('id', '=', by.id) : q.where((eb) => eb.or([eb('access_hash', '=', by.tokenHash), eb('refresh_hash', '=', by.tokenHash)]))
+    const result = await q.executeTakeFirst()
+    return Number(result.numDeletedRows ?? 0) > 0
   }
 
   // Event definitions ---------------------------------------------------------

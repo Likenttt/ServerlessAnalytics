@@ -273,4 +273,26 @@ describe.each(DIALECTS)('Repository on %s', (_, open) => {
     expect(await repo.listApps()).toEqual([])
     expect(await repo.listApps({ includeDeleted: true })).toHaveLength(1)
   })
+
+  it('stores OAuth clients, single-use codes and rotating grants', async () => {
+    const now = Date.now()
+    await repo.createOAuthClient({ id: 'c1', secret_hash: null, name: 'Claude', redirect_uris: '["http://localhost:1/cb"]', client_uri: null, created_at: now })
+    expect((await repo.getOAuthClient('c1'))?.name).toBe('Claude')
+
+    await repo.createOAuthCode({ code_hash: 'h1', client_id: 'c1', redirect_uri: 'http://localhost:1/cb', code_challenge: 'x', resource: null, expires_at: now + 60_000 })
+    expect((await repo.takeOAuthCode('h1'))?.client_id).toBe('c1')
+    expect(await repo.takeOAuthCode('h1')).toBeNull()
+
+    const tokens = { access_hash: 'a1', access_expires_at: now + 3_600_000, refresh_hash: 'r1', refresh_expires_at: now + DAY }
+    await repo.createOAuthGrant({ id: 'g1', client_id: 'c1', ...tokens, created_at: now, last_used_at: null })
+    expect((await repo.findOAuthGrant({ accessHash: 'a1' }))?.client_name).toBe('Claude')
+    expect(await repo.rotateOAuthGrant('g1', 'r1', { ...tokens, access_hash: 'a2', refresh_hash: 'r2' })).toBe(true)
+    expect(await repo.rotateOAuthGrant('g1', 'r1', { ...tokens, access_hash: 'a3', refresh_hash: 'r3' })).toBe(false)
+    expect(await repo.findOAuthGrant({ accessHash: 'a1' })).toBeNull()
+    expect((await repo.findOAuthGrant({ refreshHash: 'r2' }))?.id).toBe('g1')
+    expect(await repo.listOAuthGrants()).toMatchObject([{ id: 'g1', clientId: 'c1', clientName: 'Claude', lastUsedAt: null }])
+
+    expect(await repo.deleteOAuthGrant({ tokenHash: 'r2' })).toBe(true)
+    expect(await repo.listOAuthGrants()).toEqual([])
+  })
 })
